@@ -13,11 +13,14 @@ from lidar import Lidar
 from environment import Environment
 from prefabricated_paths import PrefabricatedPaths
 from simulator import Simulator
+from environment_presets_pure_pursuit import SafeEnvironmentGenerator
+
 from loop_closure import (
     should_create_keyframe,
     add_keyframe,
     find_loop_candidate,
-    try_loop_closure
+    try_loop_closure,
+    angle_diff,
 )
 
 # Nuove importazioni da icp.py
@@ -31,15 +34,38 @@ from pure_pursuit import PurePursuitController
 
 
 def build_environment() -> Environment:
-    """Crea l'ambiente geometrico con ostacoli usato dalla simulazione."""
-    env = Environment()
-    env.set_bounds(-10.0, -10.0, 10.0, 10.0)
+    """Crea l'ambiente geometrico con ostacoli usato dalla simulazione.
 
-    # Aggiungiamo qualche ostacolo geometrico sparso per dare punti di riferimento al LIDAR
+    Gli ostacoli sono distribuiti su un'area più ampia (fino a ~±9 m) rispetto
+    al set originale, per garantire che il LiDAR trovi sempre feature sufficienti
+    e angolarmente diversificate anche sui preset più estesi (circle_large,
+    square, pista_f1, eight) — non solo nella zona centrale vicino all'origine.
+    Un set di feature troppo scarso lontano dagli ostacoli causa fit ICP
+    numericamente instabili (in particolare sulla rotazione, per via di
+    corrispondenze quasi collineari viste dal robot).
+    """
+    env = Environment()
+    env.set_bounds(-12.0, -12.0, 14.0, 12.0)
+
+    # Cluster originale vicino all'origine
     env.add_circle(cx=1.5, cy=2.0, radius=0.4)
     env.add_circle(cx=-1.5, cy=4.0, radius=0.3)
     env.add_rectangle(xmin=2.0, ymin=4.0, xmax=3.0, ymax=5.0)
     env.add_wall(x0=-3.0, y0=1.0, x1=-2.0, y1=5.0, thickness=0.15)
+
+    # Ostacoli aggiuntivi distribuiti più lontano dall'origine, per coprire
+    # meglio i preset con estensione maggiore (circle_large r=6, square 8x8,
+    # pista_f1 fino a (12,8), eight scale_a=6/scale_b=3)
+    env.add_circle(cx=6.0, cy=6.0, radius=0.4)
+    env.add_circle(cx=-6.0, cy=-6.0, radius=0.4)
+    env.add_circle(cx=-6.0, cy=6.0, radius=0.3)
+    env.add_circle(cx=6.0, cy=-3.0, radius=0.35)
+    env.add_circle(cx=0.0, cy=-6.0, radius=0.4)
+    env.add_circle(cx=9.5, cy=3.0, radius=0.35)
+    env.add_circle(cx=-4.0, cy=-3.0, radius=0.3)
+    env.add_rectangle(xmin=7.5, ymin=7.5, xmax=8.5, ymax=8.5)
+    env.add_wall(x0=6.0, y0=-6.0, x1=6.0, y1=-2.0, thickness=0.15)
+
     return env
 
 
@@ -57,12 +83,16 @@ def run_simulation(
         path_name: str = "tight_slalom",
         use_loop_closure: bool = True,
         dt: float = 0.05,
-        total_steps: int = 1500,
+        total_steps: int = 5000,
         loop_cooldown: int = 40,
         loop_min_separation: int = 40,
         loop_search_radius: float = 1.0,
-        lookahead_distance: float = 0.3,
+        lookahead_distance: float = 0.2,
         min_leave_start_dist: float = 0.5,
+        min_icp_correspondences: int = 8,
+        max_icp_rmse: float = 0.3,
+        max_icp_angle_correction: float = np.deg2rad(20.0),
+        max_icp_pos_correction: float = 0.6,
         verbose: bool = True,
 ):
     """
@@ -83,6 +113,21 @@ def run_simulation(
             Necessario per i percorsi chiusi (es. 'eight', 'square', 'pista_f1'), dove
             l'ultimo punto del percorso coincide con il primo: senza questa soglia la
             simulazione terminerebbe immediatamente al primo step.
+        min_icp_correspondences: numero minimo di corrispondenze punto-punto richieste
+            perché la correzione ICP scan-to-map venga considerata affidabile e quindi
+            applicata. Sotto questa soglia il fit è numericamente instabile (specialmente
+            sulla rotazione) e viene scartato, mantenendo la sola predizione odometrica.
+        max_icp_rmse: RMSE massimo accettabile perché la correzione ICP scan-to-map
+            venga applicata. Sopra questa soglia il fit viene considerato inaffidabile
+            e scartato.
+        max_icp_angle_correction: correzione massima di orientamento (rad) che la
+            correzione ICP può introdurre rispetto alla predizione odometrica. Dato
+            che qui l'odometria è pressoché perfetta, un salto di orientamento più
+            grande di questa soglia è quasi sempre un fit ICP numericamente instabile
+            (es. per corrispondenze poco diversificate angolarmente, "aperture
+            problem"), non una correzione legittima, e viene scartato.
+        max_icp_pos_correction: correzione massima di posizione (m) analoga a
+            max_icp_angle_correction, ma sulla componente (x, y).
         verbose: se True, stampa a schermo i messaggi di avanzamento/loop closure
 
     Returns:
@@ -97,7 +142,7 @@ def run_simulation(
     path = PrefabricatedPaths.get_preset(path_name)
 
     # === AMBIENTE ===
-    env = build_environment()
+    env = SafeEnvironmentGenerator.generate_safe_env_for_path(path, clearance=0.6, num_obstacles=20)
     map_world = build_map_world(env)
 
     # === RISOLUZIONE BUG INDEXERROR ===
@@ -110,7 +155,7 @@ def run_simulation(
 
     # 2. Inizializzazione Sensori, Controller e Robot
     robot = Robot(x=path[0, 0], y=path[0, 1], theta=initial_theta)
-    controller = PurePursuitController(lookahead_distance=lookahead_distance, target_linear_velocity=0.5)
+    controller = PurePursuitController( lookahead_distance=lookahead_distance, target_linear_velocity=0.4, stop_tolerance=0.08, max_index_gap=30)
     lidar = Lidar(n_rays=360, angle_span=2 * np.pi, r_max=6.0, add_noise=True)
 
     # 3. Inizializzazione del Simulatore
@@ -125,6 +170,8 @@ def run_simulation(
     keyframes = []
     last_loop_k = -10 ** 9
     n_loops = 0
+    n_icp_accepted = 0
+    n_icp_rejected = 0
 
     # Flag per gestire correttamente i percorsi chiusi (dove path[-1] ≈ path[0]):
     # la condizione di arrivo viene valutata solo dopo che il robot si è
@@ -158,6 +205,10 @@ def run_simulation(
         estimated_pose[1] = init_t[1]
         estimated_pose[2] = np.arctan2(init_R[1, 0], init_R[0, 0])
 
+        # Salva la predizione odometrica pura: verrà usata come riferimento per
+        # giudicare se una correzione ICP successiva è fisicamente plausibile.
+        predicted_pose = estimated_pose.copy()
+
         # 3. Correzione ICP solo se il LIDAR "vede" qualcosa
         if len(scan_local) > 3:
             icp_results = run_icp_scan_to_map_pair(
@@ -168,10 +219,40 @@ def run_simulation(
                 max_correspondence_distance=1.5
             )
 
-            # Sovrascrive la stima odometrica con i risultati ICP
-            estimated_pose[0] = icp_results['init']['t'][0]
-            estimated_pose[1] = icp_results['init']['t'][1]
-            estimated_pose[2] = icp_results['init']['alpha_rad']
+            icp_init_res = icp_results['init']
+            icp_t = icp_init_res['t']
+            icp_theta = icp_init_res['alpha_rad']
+
+            # GATING DI QUALITÀ, in due parti:
+            # (a) qualità intrinseca del fit ICP (corrispondenze, RMSE, convergenza)
+            # (b) plausibilità fisica della correzione rispetto alla predizione
+            #     odometrica: dato che qui l'odometria è pressoché perfetta, un
+            #     salto enorme rispetto ad essa è quasi sempre un fit corrotto
+            #     (es. "aperture problem" su corrispondenze poco diversificate
+            #     angolarmente), non una correzione legittima.
+            fit_quality_ok = (
+                icp_init_res['converged']
+                and icp_init_res['n_corr_last'] >= min_icp_correspondences
+                and icp_init_res['rmse'] <= max_icp_rmse
+            )
+
+            angle_correction = angle_diff(icp_theta, predicted_pose[2])
+            pos_correction = float(np.linalg.norm(np.asarray(icp_t) - predicted_pose[:2]))
+            plausibility_ok = (
+                angle_correction <= max_icp_angle_correction
+                and pos_correction <= max_icp_pos_correction
+            )
+
+            icp_reliable = fit_quality_ok and plausibility_ok
+
+            if icp_reliable:
+                # Sovrascrive la stima odometrica con i risultati ICP
+                estimated_pose[0] = icp_t[0]
+                estimated_pose[1] = icp_t[1]
+                estimated_pose[2] = icp_theta
+                n_icp_accepted += 1
+            else:
+                n_icp_rejected += 1
 
             # D. Logica di Loop Closure (solo se abilitata)
             if use_loop_closure:
@@ -225,11 +306,19 @@ def run_simulation(
             if np.linalg.norm(current_odom[:2] - start_pos) > min_leave_start_dist:
                 left_start = True
 
-        if left_start and np.linalg.norm(current_odom[:2] - path[-1, :2]) < 0.2:
+        if left_start and (v == 0.0 and omega == 0.0):
             if verbose:
                 label = "CON" if use_loop_closure else "SENZA"
                 print(f"[{label} Loop Closure] Traguardo raggiunto al passo {step}!")
+                print(f"  ICP scan-to-map: {n_icp_accepted} accettati, {n_icp_rejected} scartati per bassa qualità")
             break
+
+    if verbose and (n_icp_accepted + n_icp_rejected) > 0:
+        print(
+            f"[Riepilogo ICP] {path_name} ({'CON' if use_loop_closure else 'SENZA'} LC): "
+            f"{n_icp_accepted} accettati, {n_icp_rejected} scartati "
+            f"({100 * n_icp_rejected / (n_icp_accepted + n_icp_rejected):.1f}% scartati)"
+        )
 
     return {
         "path": path,
@@ -237,6 +326,8 @@ def run_simulation(
         "estimated_history": np.array(estimated_history),
         "env": env,
         "n_loops": n_loops,
+        "n_icp_accepted": n_icp_accepted,
+        "n_icp_rejected": n_icp_rejected,
     }
 
 
@@ -245,8 +336,10 @@ def plot_comparison(result_with_lc: dict, result_without_lc: dict, path_name: st
     fig, axes = plt.subplots(1, 2, figsize=(16, 8), sharex=True, sharey=True)
 
     titles = [
-        f"CON Loop Closure ({result_with_lc['n_loops']} loop accettati)",
-        "SENZA Loop Closure",
+        f"CON Loop Closure ({result_with_lc['n_loops']} loop accettati, "
+        f"ICP scartati: {result_with_lc['n_icp_rejected']}/{result_with_lc['n_icp_accepted'] + result_with_lc['n_icp_rejected']})",
+        f"SENZA Loop Closure (ICP scartati: {result_without_lc['n_icp_rejected']}/"
+        f"{result_without_lc['n_icp_accepted'] + result_without_lc['n_icp_rejected']})",
     ]
     results = [result_with_lc, result_without_lc]
 
