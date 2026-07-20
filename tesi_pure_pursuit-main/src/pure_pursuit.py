@@ -1,6 +1,7 @@
 # Controller Pure Pursuit: calcola i comandi (v, omega) per far seguire al robot
 # un path (traiettoria) di riferimento, usando un punto "lookahead" e la relativa
 # formula di curvatura in coordinate locali del robot.
+# Aggiunto per tesi per il pure pursuit
 
 import numpy as np
 

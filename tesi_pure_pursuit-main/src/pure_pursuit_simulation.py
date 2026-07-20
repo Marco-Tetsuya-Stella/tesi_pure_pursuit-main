@@ -8,7 +8,7 @@ from environment import Environment
 from prefabricated_paths import PrefabricatedPaths
 from simulator import Simulator
 from environment_presets_pure_pursuit import get_environment_for_preset, get_preset_env_defaults
-
+from pure_pursuit import PurePursuitController
 from loop_closure import (
     should_create_keyframe,
     add_keyframe,
@@ -21,45 +21,6 @@ from icp import (
     compute_relative_transform_from_odometry,
     run_icp_scan_to_map_pair
 )
-
-from pure_pursuit import PurePursuitController
-
-
-def build_environment() -> Environment:
-    """Crea l'ambiente geometrico con ostacoli usato dalla simulazione.
-
-    Gli ostacoli sono distribuiti su un'area più ampia (fino a ~±9 m) rispetto
-    al set originale, per garantire che il LiDAR trovi sempre feature sufficienti
-    e angolarmente diversificate anche sui preset più estesi (circle_large,
-    square, pista_f1, eight) — non solo nella zona centrale vicino all'origine.
-    Un set di feature troppo scarso lontano dagli ostacoli causa fit ICP
-    numericamente instabili (in particolare sulla rotazione, per via di
-    corrispondenze quasi collineari viste dal robot).
-    """
-    env = Environment()
-    env.set_bounds(-12.0, -12.0, 14.0, 12.0)
-
-    # Cluster originale vicino all'origine
-    env.add_circle(cx=1.5, cy=2.0, radius=0.4)
-    env.add_circle(cx=-1.5, cy=4.0, radius=0.3)
-    env.add_rectangle(xmin=2.0, ymin=4.0, xmax=3.0, ymax=5.0)
-    env.add_wall(x0=-3.0, y0=1.0, x1=-2.0, y1=5.0, thickness=0.15)
-
-    # Ostacoli aggiuntivi distribuiti più lontano dall'origine, per coprire
-    # meglio i preset con estensione maggiore (circle_large r=6, square 8x8,
-    # pista_f1 fino a (12,8), eight scale_a=6/scale_b=3)
-    env.add_circle(cx=6.0, cy=6.0, radius=0.4)
-    env.add_circle(cx=-6.0, cy=-6.0, radius=0.4)
-    env.add_circle(cx=-6.0, cy=6.0, radius=0.3)
-    env.add_circle(cx=6.0, cy=-3.0, radius=0.35)
-    env.add_circle(cx=0.0, cy=-6.0, radius=0.4)
-    env.add_circle(cx=9.5, cy=3.0, radius=0.35)
-    env.add_circle(cx=-4.0, cy=-3.0, radius=0.3)
-    env.add_rectangle(xmin=7.5, ymin=7.5, xmax=8.5, ymax=8.5)
-    env.add_wall(x0=6.0, y0=-6.0, x1=6.0, y1=-2.0, thickness=0.15)
-
-    return env
-
 
 def build_map_world(env: Environment) -> np.ndarray:
     """Estrae i punti degli ostacoli per usarli come mappa globale (target) per l'ICP."""

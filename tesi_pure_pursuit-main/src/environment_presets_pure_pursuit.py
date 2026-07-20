@@ -42,7 +42,7 @@ PRESET_ENV_CONFIG: dict = {
     "tight_slalom":    {"clearance": 0.5, "n_obstacles": 8,  "r_max": 4.5},
     "wide_slalom":     {"clearance": 0.8, "n_obstacles": 10, "r_max": 6.5},
     "eight":           {"clearance": 0.7, "n_obstacles": 9,  "r_max": 6.0},
-    "square":          {"clearance": 0.8, "n_obstacles": 8,  "r_max": 6.5},
+    "square":          {"clearance": 0.8, "n_obstacles": 10,  "r_max": 6.5},
     "pista_f1":        {"clearance": 0.8, "n_obstacles": 10, "r_max": 7.0},
 }
 
