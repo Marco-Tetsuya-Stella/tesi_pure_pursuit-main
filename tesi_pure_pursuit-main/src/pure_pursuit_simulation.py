@@ -1,19 +1,13 @@
 import numpy as np
 import matplotlib.pyplot as plt
-from shapely.geometry import box
-from shapely.ops import unary_union
-from shapely.geometry.base import BaseGeometry
-from shapely.geometry import Point, Polygon, LineString
-from typing import List, Optional
-from shapely.errors import TopologicalError
 
-# Importazioni dai moduli forniti
+
 from robot import Robot
 from lidar import Lidar
 from environment import Environment
 from prefabricated_paths import PrefabricatedPaths
 from simulator import Simulator
-from environment_presets_pure_pursuit import SafeEnvironmentGenerator
+from environment_presets_pure_pursuit import get_environment_for_preset, get_preset_env_defaults
 
 from loop_closure import (
     should_create_keyframe,
@@ -23,13 +17,11 @@ from loop_closure import (
     angle_diff,
 )
 
-# Nuove importazioni da icp.py
 from icp import (
     compute_relative_transform_from_odometry,
     run_icp_scan_to_map_pair
 )
 
-# Controller Pure Pursuit (ora in file dedicato)
 from pure_pursuit import PurePursuitController
 
 
@@ -85,14 +77,20 @@ def run_simulation(
         dt: float = 0.05,
         total_steps: int = 5000,
         loop_cooldown: int = 40,
-        loop_min_separation: int = 40,
-        loop_search_radius: float = 1.0,
+        loop_min_separation: int = 150,
+        loop_search_radius: float = 0.8,
         lookahead_distance: float = 0.2,
         min_leave_start_dist: float = 0.5,
         min_icp_correspondences: int = 8,
         max_icp_rmse: float = 0.3,
         max_icp_angle_correction: float = np.deg2rad(20.0),
         max_icp_pos_correction: float = 0.6,
+        env_clearance: float = None,
+        env_n_obstacles: int = None,
+        lidar_r_max: float = None,
+        max_loop_angle_correction: float = np.deg2rad(25.0),
+        max_loop_pos_correction: float = 0.8,
+        min_loop_scan_points: int = 15,
         verbose: bool = True,
 ):
     """
@@ -128,6 +126,30 @@ def run_simulation(
             problem"), non una correzione legittima, e viene scartato.
         max_icp_pos_correction: correzione massima di posizione (m) analoga a
             max_icp_angle_correction, ma sulla componente (x, y).
+        env_clearance: distanza minima (m) degli ostacoli dal percorso. Se None,
+            usa il default specifico del preset (vedi PRESET_ENV_CONFIG in
+            environment_presets_pure_pursuit.py).
+        env_n_obstacles: numero di ostacoli nell'ambiente. Se None, usa il
+            default specifico del preset.
+        lidar_r_max: portata massima (m) del LiDAR. Se None, usa il default
+            specifico del preset (vedi PRESET_ENV_CONFIG). Un r_max troppo
+            grande aumenta il rischio di "perceptual aliasing" nella loop
+            closure (il robot "vede" zone lontane simili ad altre già viste).
+        max_loop_angle_correction: correzione massima di orientamento (rad)
+            che una loop closure può introdurre rispetto alla stima corrente.
+            RMSE e fitness misurano solo quanto bene i punti si allineano DATO
+            un abbinamento, non che l'abbinamento sia con il posto giusto: con
+            ostacoli di forma/dimensione simile in punti diversi dell'ambiente,
+            un fit numericamente ottimo può comunque riferirsi al posto
+            sbagliato (perceptual aliasing). Un salto enorme rispetto alla
+            stima corrente (qui affidabile, essendo l'odometria quasi perfetta)
+            è quasi sempre un falso positivo, anche con RMSE/fitness ottimi.
+        max_loop_pos_correction: correzione massima di posizione (m), analoga
+            a max_loop_angle_correction.
+        min_loop_scan_points: numero minimo di punti nello scan corrente
+            richiesti per tentare una loop closure. Con pochi punti, RMSE e
+            fitness sono statisticamente inaffidabili anche quando appaiono
+            ottimi (basta poca fortuna per un fit spurio).
         verbose: se True, stampa a schermo i messaggi di avanzamento/loop closure
 
     Returns:
@@ -142,8 +164,16 @@ def run_simulation(
     path = PrefabricatedPaths.get_preset(path_name)
 
     # === AMBIENTE ===
-    env = SafeEnvironmentGenerator.generate_safe_env_for_path(path, clearance=0.6, num_obstacles=20)
+    # Usa l'ambiente deterministico dedicato a questo preset (PRESET_ENV_CONFIG
+    # in environment_presets_pure_pursuit.py), a meno che env_clearance/
+    # env_n_obstacles non vengano specificati esplicitamente per sovrascriverlo.
+    env = get_environment_for_preset(path_name, clearance=env_clearance, n_obstacles=env_n_obstacles)
     map_world = build_map_world(env)
+
+    # Portata LiDAR: usa il default specifico del preset (proporzionato alla
+    # sua estensione) a meno che non venga sovrascritto esplicitamente.
+    if lidar_r_max is None:
+        lidar_r_max = get_preset_env_defaults(path_name)["r_max"]
 
     # === RISOLUZIONE BUG INDEXERROR ===
     if path.shape[1] < 3:
@@ -155,8 +185,8 @@ def run_simulation(
 
     # 2. Inizializzazione Sensori, Controller e Robot
     robot = Robot(x=path[0, 0], y=path[0, 1], theta=initial_theta)
-    controller = PurePursuitController( lookahead_distance=lookahead_distance, target_linear_velocity=0.4, stop_tolerance=0.08, max_index_gap=30)
-    lidar = Lidar(n_rays=360, angle_span=2 * np.pi, r_max=6.0, add_noise=True)
+    controller = PurePursuitController( lookahead_distance=lookahead_distance, target_linear_velocity=0.4, stop_tolerance=0.1, max_index_gap=30)
+    lidar = Lidar(n_rays=360, angle_span=2 * np.pi, r_max=lidar_r_max, add_noise=True)
 
     # 3. Inizializzazione del Simulatore
     sim = Simulator(robot=robot)
@@ -170,6 +200,7 @@ def run_simulation(
     keyframes = []
     last_loop_k = -10 ** 9
     n_loops = 0
+    n_loop_rejected = 0
     n_icp_accepted = 0
     n_icp_rejected = 0
 
@@ -261,7 +292,9 @@ def run_simulation(
                     kf = add_keyframe(keyframes, step, estimated_pose, scan_local)
 
                     # Prova la loop closure solo se è passato abbastanza tempo dall'ultimo loop accettato
-                    if (step - last_loop_k) >= loop_cooldown:
+                    # e se lo scan corrente ha abbastanza punti da rendere RMSE/fitness statisticamente
+                    # affidabili (con pochi punti un fit spurio può comunque apparire ottimo).
+                    if (step - last_loop_k) >= loop_cooldown and len(scan_local) >= min_loop_scan_points:
                         candidate = find_loop_candidate(
                             estimated_pose,
                             keyframes[:-1],  # esclude il keyframe appena aggiunto
@@ -271,18 +304,56 @@ def run_simulation(
                         )
 
                         if candidate:
-                            loop_res = try_loop_closure(scan_local, estimated_pose, candidate)
-                            if loop_res:
-                                estimated_pose = loop_res["pose_corrected"]
-                                last_loop_k = step
-                                n_loops += 1
+                            loop_res = try_loop_closure(
+                                curr_scan_local=scan_local,
+                                curr_pose_pred=estimated_pose,
+                                candidate_kf=candidate,
+                                max_corr_dist=0.3,
+                                max_rmse=0.05,
+                                min_fitness=0.7,
+                            )
 
-                                if verbose:
-                                    print(
-                                        f"[LOOP] step={step} | kf={candidate.k} | "
-                                        f"rmse={loop_res['rmse']:.4f} | "
-                                        f"fitness={loop_res['fitness']:.3f}"
-                                    )
+                            if loop_res:
+                                # GATE DI PLAUSIBILITÀ FISICA: RMSE e fitness misurano solo
+                                # quanto bene i punti si allineano dato un abbinamento, non che
+                                # l'abbinamento sia con il posto giusto ("perceptual aliasing" —
+                                # ostacoli simili in punti diversi dell'ambiente possono produrre
+                                # un fit numericamente ottimo ma geometricamente sbagliato). Un
+                                # salto enorme rispetto alla stima corrente (qui affidabile,
+                                # essendo l'odometria quasi perfetta) è quasi sempre un falso
+                                # positivo, anche con RMSE/fitness eccellenti.
+                                loop_angle_correction = angle_diff(
+                                    loop_res["pose_corrected"][2], estimated_pose[2]
+                                )
+                                loop_pos_correction = float(
+                                    np.linalg.norm(loop_res["pose_corrected"][:2] - estimated_pose[:2])
+                                )
+                                loop_plausible = (
+                                    loop_angle_correction <= max_loop_angle_correction
+                                    and loop_pos_correction <= max_loop_pos_correction
+                                )
+
+                                if loop_plausible:
+                                    estimated_pose = loop_res["pose_corrected"]
+                                    last_loop_k = step
+                                    n_loops += 1
+
+                                    if verbose:
+                                        print(
+                                            f"[LOOP] step={step} | kf={candidate.k} | "
+                                            f"rmse={loop_res['rmse']:.4f} | "
+                                            f"fitness={loop_res['fitness']:.3f}"
+                                        )
+                                else:
+                                    n_loop_rejected += 1
+                                    if verbose:
+                                        print(
+                                            f"[LOOP SCARTATO] step={step} | kf={candidate.k} | "
+                                            f"rmse={loop_res['rmse']:.4f} | fitness={loop_res['fitness']:.3f} | "
+                                            f"salto_angolo={np.degrees(loop_angle_correction):.1f}° | "
+                                            f"salto_pos={loop_pos_correction:.3f}m -> fit ottimo ma implausibile "
+                                            f"(possibile perceptual aliasing)"
+                                        )
 
         previous_odom = current_odom.copy()
 
@@ -326,6 +397,7 @@ def run_simulation(
         "estimated_history": np.array(estimated_history),
         "env": env,
         "n_loops": n_loops,
+        "n_loop_rejected": n_loop_rejected,
         "n_icp_accepted": n_icp_accepted,
         "n_icp_rejected": n_icp_rejected,
     }
@@ -336,8 +408,9 @@ def plot_comparison(result_with_lc: dict, result_without_lc: dict, path_name: st
     fig, axes = plt.subplots(1, 2, figsize=(16, 8), sharex=True, sharey=True)
 
     titles = [
-        f"CON Loop Closure ({result_with_lc['n_loops']} loop accettati, "
-        f"ICP scartati: {result_with_lc['n_icp_rejected']}/{result_with_lc['n_icp_accepted'] + result_with_lc['n_icp_rejected']})",
+        f"CON Loop Closure ({result_with_lc['n_loops']} accettati, {result_with_lc['n_loop_rejected']} scartati "
+        f"per implausibilità, ICP scartati: {result_with_lc['n_icp_rejected']}/"
+        f"{result_with_lc['n_icp_accepted'] + result_with_lc['n_icp_rejected']})",
         f"SENZA Loop Closure (ICP scartati: {result_without_lc['n_icp_rejected']}/"
         f"{result_without_lc['n_icp_accepted'] + result_without_lc['n_icp_rejected']})",
     ]
