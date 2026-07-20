@@ -1,3 +1,8 @@
+"""
+
+Aggiunto per la tesi riguradante il pure pursuit
+
+"""
 import numpy as np
 import matplotlib.pyplot as plt
 
