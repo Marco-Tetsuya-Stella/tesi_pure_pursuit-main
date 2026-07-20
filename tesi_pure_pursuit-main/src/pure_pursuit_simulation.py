@@ -2,6 +2,7 @@
 
 Aggiunto per la tesi riguradante il pure pursuit
 
+
 """
 import numpy as np
 import matplotlib.pyplot as plt
@@ -76,29 +77,32 @@ def run_simulation(
 
     Args:
         path_name: Nome della traiettoria prefabbricata da seguire.
-        use_loop_closure: Booleano per attivare o disattivare il sistema di keyframe e loop closure[cite: 14].
-        dt: Passo temporale di integrazione della simulazione in secondi[cite: 14].
-        total_steps: Limite massimo di iterazioni per evitare loop infiniti[cite: 14].
-        loop_cooldown: Iterazioni minime di pausa tra un loop closure accettato e il successivo[cite: 14].
-        loop_min_separation: Distanza temporale minima (in step) tra la posa attuale e un keyframe candidato[cite: 14].
-        loop_search_radius: Raggio metrico per la ricerca di keyframe candidati storici[cite: 14].
-        lookahead_distance: Distanza di mira per il controllore Pure Pursuit[cite: 14].
-        min_leave_start_dist: Distanza che il robot deve coprire prima che il simulatore possa valutare l'arrivo al traguardo (utile per percorsi chiusi)[cite: 14].
-        min_icp_correspondences: Soglia minima di punti corrispondenti affinché l'ICP sia ritenuto valido[cite: 14].
-        max_icp_rmse: Errore quadratico medio massimo tollerato per accettare una correzione ICP[cite: 14].
-        max_icp_angle_correction: Massima rotazione correttiva permessa all'ICP per evitare "salti" causati da instabilità numerica[cite: 14].
-        max_icp_pos_correction: Massima traslazione correttiva permessa all'ICP[cite: 14].
-        env_clearance: Distanza di sicurezza degli ostacoli (sovrascrive il default se specificato)[cite: 14].
-        env_n_obstacles: Numero di ostacoli desiderati (sovrascrive il default)[cite: 14].
-        lidar_r_max: Portata massima del sensore LiDAR in metri[cite: 14].
-        max_loop_angle_correction: Massima correzione angolare permessa al loop closure per scartare i falsi positivi da perceptual aliasing[cite: 14].
-        max_loop_pos_correction: Massima correzione spaziale permessa al loop closure[cite: 14].
-        min_loop_scan_points: Punti minimi necessari in una scansione per tentare la loop closure[cite: 14].
-        verbose: Se True, stampa messaggi informativi in console durante l'esecuzione[cite: 14].
+        use_loop_closure: Booleano per attivare o disattivare il sistema di keyframe e loop closure.
+        dt: Passo temporale di integrazione della simulazione in secondi.
+        total_steps: Limite massimo di iterazioni per evitare loop infiniti.
+        loop_cooldown: Iterazioni minime di pausa tra un loop closure accettato e il successivo.
+        loop_min_separation: Distanza temporale minima (in step) tra la posa attuale e un keyframe candidato.
+        loop_search_radius: Raggio metrico per la ricerca di keyframe candidati storici.
+        lookahead_distance: Distanza di mira per il controllore Pure Pursuit.
+        min_leave_start_dist: Distanza che il robot deve coprire prima che il simulatore possa valutare l'arrivo al
+            traguardo (utile per percorsi chiusi).
+        min_icp_correspondences: Soglia minima di punti corrispondenti affinché l'ICP sia ritenuto valido.
+        max_icp_rmse: Errore quadratico medio massimo tollerato per accettare una correzione ICP.
+        max_icp_angle_correction: Massima rotazione correttiva permessa all'ICP per evitare "salti" causati da instabilità
+            numerica.
+        max_icp_pos_correction: Massima traslazione correttiva permessa all'ICP.
+        env_clearance: Distanza di sicurezza degli ostacoli (sovrascrive il default se specificato).
+        env_n_obstacles: Numero di ostacoli desiderati (sovrascrive il default).
+        lidar_r_max: Portata massima del sensore LiDAR in metri.
+        max_loop_angle_correction: Massima correzione angolare permessa al loop closure per scartare i falsi positivi da
+            perceptual aliasing.
+        max_loop_pos_correction: Massima correzione spaziale permessa al loop closure.
+        min_loop_scan_points: Punti minimi necessari in una scansione per tentare la loop closure.
+        verbose: Se True, stampa messaggi informativi in console durante l'esecuzione.
 
     Returns:
         Un dizionario contenente la cronologia della traiettoria di riferimento,
-        quella reale percorsa, quella stimata, e varie metriche di successo/fallimento dell'ICP e del LC[cite: 14].
+        quella reale percorsa, quella stimata, e varie metriche di successo/fallimento dell'ICP e del LC.
         Dizionario con:
             "path": traiettoria di riferimento (Nx2 o Nx3)
             "robot_history": traiettoria reale del robot (Nx3)
@@ -116,14 +120,14 @@ def run_simulation(
     # env_n_obstacles non vengano specificati esplicitamente per sovrascriverlo.
     env = get_environment_for_preset(path_name, clearance=env_clearance, n_obstacles=env_n_obstacles)
 
-    # Genera la "mappa del mondo" statica usata per allineare le scansioni del LiDAR[cite: 14]
+    # Genera la "mappa del mondo" statica usata per allineare le scansioni del LiDAR
     map_world = build_map_world(env)
 
-    # Configura il raggio del LiDAR in base all'ambiente se non specificato[cite: 14]
+    # Configura il raggio del LiDAR in base all'ambiente se non specificato
     if lidar_r_max is None:
         lidar_r_max = get_preset_env_defaults(path_name)["r_max"]
 
-    # Inizializza l'orientamento di partenza evitando errori se l'array del percorso ha solo due colonne (X, Y)[cite: 14]
+    # Inizializza l'orientamento di partenza evitando errori se l'array del percorso ha solo due colonne (X, Y)
     if path.shape[1] < 3:
         dx_init = path[1, 0] - path[0, 0]
         dy_init = path[1, 1] - path[0, 1]
@@ -137,7 +141,7 @@ def run_simulation(
                                        stop_tolerance=0.1, max_index_gap=30)
     lidar = Lidar(n_rays=360, angle_span=2 * np.pi, r_max=lidar_r_max, add_noise=True)
 
-    # Prepara le strutture del simulatore per memorizzare i dati[cite: 14]
+    # Prepara le strutture del simulatore per memorizzare i dati
     sim = Simulator(robot=robot)
     sim.history = [robot.state().copy()]
     sim.commands = []
@@ -150,7 +154,7 @@ def run_simulation(
     last_loop_k = -10 ** 9
     n_loops = n_loop_rejected = n_icp_accepted = n_icp_rejected = 0
 
-    # Variabili per gestire la logica di fine percorso nei tracciati chiusi ad anello[cite: 14]
+    # Variabili per gestire la logica di fine percorso nei tracciati chiusi ad anello
     # Flag per gestire correttamente i percorsi chiusi (dove path[-1] ≈ path[0]):
     # la condizione di arrivo viene valutata solo dopo che il robot si è
     # effettivamente allontanato dal punto di partenza.
@@ -163,15 +167,15 @@ def run_simulation(
         current_odom = robot.state()
         estimated_history.append(estimated_pose[:2].copy())
 
-        # Effettua la lettura del LiDAR simulato basandosi sulla posizione reale del robot[cite: 14]
+        # Effettua la lettura del LiDAR simulato basandosi sulla posizione reale del robot
         scan_local = lidar.scan_hits(current_odom, env, frame='local')
 
         # === Fase di Localizzazione ===
 
-        # A. Calcola lo spostamento del robot rispetto allo step precedente (Dead Reckoning)[cite: 14]
+        # A. Calcola lo spostamento del robot rispetto allo step precedente (Dead Reckoning)
         R_delta, t_delta = compute_relative_transform_from_odometry(previous_odom, current_odom)
 
-        # B. Applica lo spostamento misurato alla posizione stimata (Predizione)[cite: 14]
+        # B. Applica lo spostamento misurato alla posizione stimata (Predizione)
         cos_e, sin_e = np.cos(estimated_pose[2]), np.sin(estimated_pose[2])
         R_est_current = np.array([[cos_e, -sin_e], [sin_e, cos_e]])
         t_est_current = estimated_pose[:2]
@@ -179,7 +183,7 @@ def run_simulation(
         init_R = R_est_current @ R_delta
         init_t = t_est_current + (R_est_current @ t_delta)
 
-        # Salva temporaneamente la nuova posa basata solo sull'odometria[cite: 14]
+        # Salva temporaneamente la nuova posa basata solo sull'odometria
         estimated_pose[0] = init_t[0]
         estimated_pose[1] = init_t[1]
         estimated_pose[2] = np.arctan2(init_R[1, 0], init_R[0, 0])
@@ -188,9 +192,9 @@ def run_simulation(
         # giudicare se una correzione ICP successiva è fisicamente plausibile.
         predicted_pose = estimated_pose.copy()
 
-        # C. Correzione ICP Scan-to-Map (solo se il LiDAR rileva abbastanza punti)[cite: 14]
+        # C. Correzione ICP Scan-to-Map (solo se il LiDAR rileva abbastanza punti)
         if len(scan_local) > 3:
-            # Tenta di far collimare la scansione attuale con la mappa globale del mondo[cite: 14]
+            # Tenta di far collimare la scansione attuale con la mappa globale del mondo
             icp_results = run_icp_scan_to_map_pair(
                 map_world=map_world, curr_scan_local=scan_local,
                 init_R=init_R, init_t=init_t, max_correspondence_distance=1.5
@@ -200,7 +204,7 @@ def run_simulation(
             icp_t = icp_init_res['t']
             icp_theta = icp_init_res['alpha_rad']
 
-            # Verifica la validità matematica dell'algoritmo ICP [cite: 14]
+            # Verifica la validità matematica dell'algoritmo ICP
             # GATING DI QUALITÀ, in due parti:
             # (a) qualità intrinseca del fit ICP (corrispondenze, RMSE, convergenza)
             # (b) plausibilità fisica della correzione rispetto alla predizione
@@ -214,13 +218,14 @@ def run_simulation(
                     and icp_init_res['rmse'] <= max_icp_rmse
             )
 
-            # Verifica la plausibilità fisica: scarta le correzioni che spostano il robot in modo irrealistico rispetto alla stima odometrica[cite: 14]
+            # Verifica la plausibilità fisica: scarta le correzioni che spostano il robot in modo irrealistico rispetto
+            # alla stima odometrica
             angle_correction = angle_diff(icp_theta, predicted_pose[2])
             pos_correction = float(np.linalg.norm(np.asarray(icp_t) - predicted_pose[:2]))
             plausibility_ok = (
                         angle_correction <= max_icp_angle_correction and pos_correction <= max_icp_pos_correction)
 
-            # Se i controlli sono superati, la posa viene corretta definitivamente[cite: 14]
+            # Se i controlli sono superati, la posa viene corretta definitivamente
             if fit_quality_ok and plausibility_ok:
                 estimated_pose[0] = icp_t[0]
                 estimated_pose[1] = icp_t[1]
@@ -232,14 +237,14 @@ def run_simulation(
             # D. Logica di Loop Closure (solo se abilitata)
             if use_loop_closure:
                 last_kf_pose = keyframes[-1].pose if keyframes else None
-                # Se il robot si è mosso abbastanza, salva lo stato attuale come "fotografia" (Keyframe)[cite: 14]
+                # Se il robot si è mosso abbastanza, salva lo stato attuale come "fotografia" (Keyframe)
                 if should_create_keyframe(estimated_pose, last_kf_pose):
                     kf = add_keyframe(keyframes, step, estimated_pose, scan_local)
 
                     # Verifica se è trascorso il periodo di cooldown e se ci sono sufficienti punti nella scansione
                     # scan corrente ha abbastanza punti da rendere RMSE/fitness statisticamente affidabili
                     if (step - last_loop_k) >= loop_cooldown and len(scan_local) >= min_loop_scan_points:
-                        # Cerca nella cronologia un keyframe fisicamente vicino alla posa attuale[cite: 14]
+                        # Cerca nella cronologia un keyframe fisicamente vicino alla posa attuale
                         candidate = find_loop_candidate(
                             estimated_pose,
                             keyframes[:-1], # esclude il keyframe appena aggiunto
@@ -248,14 +253,14 @@ def run_simulation(
                         )
 
                         if candidate:
-                            # Tenta di sovrapporre la scansione attuale con quella del keyframe storico trovato[cite: 14]
+                            # Tenta di sovrapporre la scansione attuale con quella del keyframe storico trovato
                             loop_res = try_loop_closure(
                                 curr_scan_local=scan_local, curr_pose_pred=estimated_pose,
                                 candidate_kf=candidate, max_corr_dist=0.3, max_rmse=0.05, min_fitness=0.7,
                             )
 
                             if loop_res:
-                                # Controlla che il loop closure non proponga correzioni assurde (perceptual aliasing)[cite: 14]
+                                # Controlla che il loop closure non proponga correzioni assurde (perceptual aliasing)
                                 # GATE DI PLAUSIBILITÀ FISICA: RMSE e fitness misurano solo
                                 # quanto bene i punti si allineano dato un abbinamento, non che
                                 # l'abbinamento sia con il posto giusto ("perceptual aliasing" —
@@ -273,7 +278,7 @@ def run_simulation(
                                             loop_pos_correction <= max_loop_pos_correction)
 
                                 if loop_plausible:
-                                    # Se tutto è coerente, applica la macro-correzione del loop closure[cite: 14]
+                                    # Se tutto è coerente, applica la macro-correzione del loop closure
                                     estimated_pose = loop_res["pose_corrected"]
                                     last_loop_k = step
                                     n_loops += 1
@@ -299,14 +304,14 @@ def run_simulation(
 
         # === Fase di Controllo (Movimento) ===
 
-        # Calcola la velocità lineare (v) e angolare (omega) affinché il robot segua il percorso[cite: 14]
+        # Calcola la velocità lineare (v) e angolare (omega) affinché il robot segua il percorso
         v, omega = controller.compute_commands(estimated_pose, path)
 
-        # Invia i comandi ai motori e avanza la fisica di uno step di tempo (dt)[cite: 14]
+        # Invia i comandi ai motori e avanza la fisica di uno step di tempo (dt)
         robot.set_command(v, omega)
         robot.step(dt)
 
-        # Salva la cronologia reale per i grafici finali[cite: 14]
+        # Salva la cronologia reale per i grafici finali
         # Salvataggio manuale dei dati nel simulatore ad ogni step
         sim.history.append(robot.state().copy())
         sim.commands.append([v, omega])
@@ -318,12 +323,12 @@ def run_simulation(
         # Aggiorna il flag "left_start" appena il robot si allontana a sufficienza
         # dal punto di partenza (necessario per i percorsi chiusi, dove l'ultimo
         # punto del percorso coincide con il primo).
-        # Controlla se il robot si è staccato dal punto di partenza[cite: 14]
+        # Controlla se il robot si è staccato dal punto di partenza
         if not left_start:
             if np.linalg.norm(current_odom[:2] - start_pos) > min_leave_start_dist:
                 left_start = True
 
-        # Interrompe la simulazione se il traguardo è stato raggiunto (motori fermi)[cite: 14]
+        # Interrompe la simulazione se il traguardo è stato raggiunto (motori fermi)
         if left_start and (v == 0.0 and omega == 0.0):
             if verbose:
                 label = "CON" if use_loop_closure else "SENZA"
@@ -339,7 +344,7 @@ def run_simulation(
         )
 
 
-    # Restituisce un riepilogo statistico della singola corsa[cite: 14]
+    # Restituisce un riepilogo statistico della singola corsa
     return {
         "path": path,
         "robot_history": np.array(sim.history),
@@ -355,16 +360,16 @@ def run_simulation(
 def plot_comparison(result_with_lc: dict, result_without_lc: dict, path_name: str = "tight_slalom") -> None:
     """
     Crea un grafico a due pannelli per confrontare visivamente i risultati
-    della navigazione con e senza il sistema di loop closure[cite: 14].
+    della navigazione con e senza il sistema di loop closure.
 
     Args:
-        result_with_lc: Dizionario dei risultati della simulazione con loop closure attivo[cite: 14].
-        result_without_lc: Dizionario dei risultati della simulazione senza loop closure[cite: 14].
-        path_name: Nome del preset usato, per scopi di titolazione[cite: 14].
+        result_with_lc: Dizionario dei risultati della simulazione con loop closure attivo.
+        result_without_lc: Dizionario dei risultati della simulazione senza loop closure.
+        path_name: Nome del preset usato, per scopi di titolazione.
     """
     fig, axes = plt.subplots(1, 2, figsize=(16, 8), sharex=True, sharey=True)
 
-    # Prepara i titoli estraendo le metriche calcolate nelle simulazioni[cite: 14]
+    # Prepara i titoli estraendo le metriche calcolate nelle simulazioni
     titles = [
         f"CON Loop Closure ({result_with_lc['n_loops']} accettati, {result_with_lc['n_loop_rejected']} scartati "
         f"per implausibilità, ICP scartati: {result_with_lc['n_icp_rejected']}/"
@@ -374,9 +379,9 @@ def plot_comparison(result_with_lc: dict, result_without_lc: dict, path_name: st
     ]
     results = [result_with_lc, result_without_lc]
 
-    # Itera sui due scenari per disegnare i rispettivi grafici[cite: 14]
+    # Itera sui due scenari per disegnare i rispettivi grafici
     for ax, res, title in zip(axes, results, titles):
-        # 1. Disegna gli ostacoli in grigio[cite: 14]
+        # 1. Disegna gli ostacoli in grigio
         env = res["env"]
         for obstacle in env.obstacles:
             x_obs, y_obs = obstacle.exterior.xy
@@ -386,7 +391,7 @@ def plot_comparison(result_with_lc: dict, result_without_lc: dict, path_name: st
         robot_history = res["robot_history"]
         estimated_history = res["estimated_history"]
 
-        # 2. Disegna i tre strati informativi (percorso teorico, posizione reale, posizione stimata dal robot)[cite: 14]
+        # 2. Disegna i tre strati informativi (percorso teorico, posizione reale, posizione stimata dal robot)
         ax.plot(path[:, 0], path[:, 1], 'g--', label='Percorso Riferimento')
         ax.plot(robot_history[:, 0], robot_history[:, 1], 'b-', label='Robot Traiettoria Reale')
         ax.plot(estimated_history[:, 0], estimated_history[:, 1], 'r.', markersize=3, label='Stima ICP + Odom')
@@ -403,14 +408,14 @@ def plot_comparison(result_with_lc: dict, result_without_lc: dict, path_name: st
 def main():
     """
     Funzione d'ingresso principale (entry point) dello script.
-    Avvia una suite di test comparativi su tutte le piste disponibili[cite: 14].
+    Avvia una suite di test comparativi su tutte le piste disponibili.
     Esegue il confronto CON/SENZA loop closure su tutti i preset di traiettoria disponibili.
     Ogni preset produce la propria pagina/figura con i due pannelli affiancati.
     """
-    # Recupera tutti i nomi dei percorsi programmati (es. circolare, quadrato, slalom)[cite: 14]
+    # Recupera tutti i nomi dei percorsi programmati (es. circolare, quadrato, slalom)
     path_names = PrefabricatedPaths.list_presets()
 
-    # Itera su ciascun percorso ed esegue il doppio test[cite: 14]
+    # Itera su ciascun percorso ed esegue il doppio test
     for path_name in path_names:
         print(f"\n{'=' * 60}")
         print(f"PRESET: {path_name}")
