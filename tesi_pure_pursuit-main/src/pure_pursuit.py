@@ -17,8 +17,8 @@ class PurePursuitController:
             lookahead_distance: float = 0.5,
             max_angular_velocity: float = 2.0,
             target_linear_velocity: float = 0.4,
-            stop_tolerance: float = 0.05,  # Tolleranza fisica (es. 5 cm)
-            max_index_gap: int = 50  # NUOVO: Tolleranza logica (n. punti)
+            stop_tolerance: float = 0.05,
+            max_index_gap: int = 50
     ):
         """
         Inizializza i parametri operativi del controllore Pure Pursuit.
