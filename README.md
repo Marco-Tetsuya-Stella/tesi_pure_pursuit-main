@@ -69,8 +69,7 @@ open3d==0.19.0
 - **`path_generator.py`**: aggiunta di una nuova pista (la quale ha un punto di intersezione così da poter sfruttare la loop closure).
 - **`pure_pursuit.py`**:
   - Aggiunta di una finestra su cui andare a vedere i punti del percorso.
-- **`pure_pursuit_simulation.py`**:
-  - Aggiunta di una finestra su cui andare a vedere i punti del percorso.
   - Correzione del bug di terminazione prematura.
+- **`pure_pursuit_simulation.py`**:
   - Permette ora di eseguire 4 tipi di test per tipologia di tracciato, scegliendo se attivare o meno il rumore all'odometria e se usare o meno la loop closure.
 - **`noisy_odometry.py`**: simula un'odometria con rumore realistico e intermittente.
