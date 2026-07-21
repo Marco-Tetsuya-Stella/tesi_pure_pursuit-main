@@ -1,5 +1,7 @@
-# README - Pure Pursuit Robot System 
+# README - Pure Pursuit Robot System
 
+> **Aggiornato al 22/07/2026:** Gli aggiornamenti sono scritti in fondo al testo.
+>
 > **Nota:** File README non definitivo.
 
 ## Descrizione del Progetto
@@ -58,3 +60,15 @@ tqdm==4.67.1
 scipy==1.16.3
 open3d==0.19.0
 ```
+
+---
+
+## Aggiornamento 22/07/2026
+
+- **`environment_presets_pure_pursuit.py`**: aggiunta di tre tipi di configurazione per tracciato (`type1` = nessun ostacolo, `type3` = massimo numero di ostacoli).
+- **`path_generator.py`**: aggiunta di una nuova pista (la quale ha un punto di intersezione così da poter sfruttare la loop closure).
+- **`pure_pursuit_simulation.py`**:
+  - Aggiunta di una finestra su cui andare a vedere i punti del percorso.
+  - Correzione del bug di terminazione prematura.
+  - Permette ora di eseguire 4 tipi di test per tipologia di tracciato, scegliendo se attivare o meno il rumore all'odometria e se usare o meno la loop closure.
+- **`noisy_odometry.py`**: simula un'odometria con rumore realistico e intermittente.
