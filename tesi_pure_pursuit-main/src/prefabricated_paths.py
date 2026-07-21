@@ -128,6 +128,45 @@ class PrefabricatedPaths:
         # Interpola 30 waypoint tra ogni coppia di vertici per rendere il percorso continuo
         return PathGenerator.custom_polygon(vertices, points_per_segment=30, close_loop=True)
 
+    @staticmethod
+    def get_pista_2() -> np.ndarray:
+        """
+        Genera un circuito chiuso asimmetrico e complesso.
+
+        Returns:
+            np.ndarray: Array Nx2 interpolato su una serie di vertici irregolari.
+        """
+        # Lista di waypoint chiave che simulano curve e rettilinei di una pista
+        vertices = [
+            (0.0, 0.0),
+            (10.0, 0.0),
+            (17.0, -3.0),
+            (14.0, -4.0),
+            (11.0, -1.0),
+            (7.0, -1.0),
+            (4.5, -2.5),
+            (3.0, -6.0),
+            (2.5, -3.0),
+            (0.0, 2,0),
+            (-3.0, 0.5),
+            (-5.0, -4.0),
+            (-6.0, -5.0),
+            (-9.0, -5.0),
+            (-10.0, -1.0),
+            (-11.0, -0.5),
+            (-13.0, -1.0),
+            (-15.0, 1.0),
+            (-17.0, 0.5),
+            (-20.0, 3.0),
+            (-21.0, 2.5),
+            (-21.0, 1.0),
+            (-7.0, -7.0),
+            (-5.0, -6.0),
+            (-4.0, -6.2),
+            (-2.5, -2.0),
+        ]
+        return PathGenerator.custom_polygon(vertices, points_per_segment=40, close_loop=True)
+
     @classmethod
     def get_preset(cls, name: str) -> np.ndarray:
         """
@@ -153,7 +192,8 @@ class PrefabricatedPaths:
             "wide_slalom": cls.get_wide_slalom,
             "eight": cls.get_standard_eight,
             "square": cls.get_square_circuit,
-            "pista_f1": cls.get_f1_racetrack
+            "pista_f1": cls.get_f1_racetrack,
+            "pista_2": cls.get_pista_2
         }
 
         # Pulisce la stringa (rimuove spazi vuoti e mette in minuscolo) per evitare errori di battitura
@@ -185,6 +225,7 @@ class PrefabricatedPaths:
             "eight",
             "square",
             "pista_f1",
+            "pista_2"
         ]
 
 

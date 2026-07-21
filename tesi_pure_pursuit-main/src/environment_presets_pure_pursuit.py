@@ -32,23 +32,71 @@ from environment import Environment
 from prefabricated_paths import PrefabricatedPaths
 
 
-# --- Configurazione per-preset di clearance e numero di ostacoli ---
+# --- Configurazione per-preset di clearance e numero di ostacoli e varianti di difficoltà ---
 #
 # Ogni percorso ha estensione e complessità diverse , quindi invece di
 # un unico valore fisso per tutti, ogni preset ha i propri default sensati.
 # Questi valori sono comunque sempre sovrascrivibili passando esplicitamente
 # 'clearance' e/o 'n_obstacles' alle funzioni sottostanti.
+
+
+# Ogni percorso ha diverse varianti (es. "type1", "type2", "type3") con
+# configurazioni specifiche. Questo permette di testare lo stesso tracciato
+# con densità di ostacoli e spazi di manovra differenti.
+
 PRESET_ENV_CONFIG: dict = {
-    "straight_short":  {"clearance": 0.6, "n_obstacles": 5,  "r_max": 4.0},
-    "straight_long":   {"clearance": 0.7, "n_obstacles": 10, "r_max": 6.0},
-    "circle_medium":   {"clearance": 0.7, "n_obstacles": 8,  "r_max": 5.0},
-    "circle_large":    {"clearance": 0.8, "n_obstacles": 10, "r_max": 7.0},
-    "tight_slalom":    {"clearance": 0.5, "n_obstacles": 8,  "r_max": 4.5},
-    "wide_slalom":     {"clearance": 0.8, "n_obstacles": 10, "r_max": 6.5},
-    "eight":           {"clearance": 0.7, "n_obstacles": 9,  "r_max": 6.0},
-    "square":          {"clearance": 0.8, "n_obstacles": 10,  "r_max": 6.5},
-    "pista_f1":        {"clearance": 0.8, "n_obstacles": 10, "r_max": 7.0},
+    "straight_short": {
+        "type1":   {"clearance": 0.8, "n_obstacles": 0,  "r_max": 4.0},
+        "type2":   {"clearance": 0.7, "n_obstacles": 2,  "r_max": 8.0},
+        "type3":   {"clearance": 0.6, "n_obstacles": 5,  "r_max": 4.0},
+    },
+    "straight_long": {
+        "type1":   {"clearance": 0.9, "n_obstacles": 0,  "r_max": 6.0},
+        "type2":   {"clearance": 0.9, "n_obstacles": 3, "r_max": 12.0},
+        "type3":   {"clearance": 0.7, "n_obstacles": 10, "r_max": 6.0},
+    },
+    "circle_medium": {
+        "type1":   {"clearance": 0.9, "n_obstacles": 0,  "r_max": 5.0},
+        "type2":   {"clearance": 0.8, "n_obstacles": 2, "r_max": 10.0},
+        "type3":   {"clearance": 0.7, "n_obstacles": 8, "r_max": 5.0},
+    },
+    "circle_large": {
+        "type1":   {"clearance": 1.0, "n_obstacles": 0,  "r_max": 7.0},
+        "type2":   {"clearance": 0.9, "n_obstacles": 3, "r_max": 14.0},
+        "type3":   {"clearance": 0.8, "n_obstacles": 10, "r_max": 7.0},
+    },
+    "tight_slalom": {
+        "type1":   {"clearance": 0.7, "n_obstacles": 0,  "r_max": 4.5},
+        "type2":   {"clearance": 0.7, "n_obstacles": 3, "r_max": 5.5},
+        "type3":   {"clearance": 0.5, "n_obstacles": 8, "r_max": 4.5},
+    },
+    "wide_slalom": {
+        "type1":   {"clearance": 1.0, "n_obstacles": 0,  "r_max": 6.5},
+        "type2":   {"clearance": 0.9, "n_obstacles": 3, "r_max": 10},
+        "type3":   {"clearance": 0.8, "n_obstacles": 10, "r_max": 6.5},
+    },
+    "eight": {
+        "type1":   {"clearance": 0.9, "n_obstacles": 0,  "r_max": 6.0},
+        "type2":   {"clearance": 0.9, "n_obstacles": 3, "r_max": 8.0},
+        "type3":   {"clearance": 0.7, "n_obstacles": 9, "r_max": 6.0},
+    },
+    "square": {
+        "type1":   {"clearance": 1.0, "n_obstacles": 0,  "r_max": 6.5},
+        "type2":   {"clearance": 0.9, "n_obstacles": 4, "r_max": 12.5},
+        "type3":   {"clearance": 0.8, "n_obstacles": 10, "r_max": 6.5},
+    },
+    "pista_f1": {
+        "type1":   {"clearance": 1.0, "n_obstacles": 0,  "r_max": 7.0},
+        "type2":   {"clearance": 0.9, "n_obstacles": 4, "r_max": 14.0},
+        "type3":   {"clearance": 0.8, "n_obstacles": 10, "r_max": 7.0},
+    },
+    "pista_2": {
+        "type1":   {"clearance": 1.0, "n_obstacles": 0,  "r_max": 6.0},
+        "type2":   {"clearance": 0.9, "n_obstacles": 5,  "r_max": 10.0},
+        "type3":   {"clearance": 0.8, "n_obstacles": 12, "r_max": 8.0},
+    },
 }
+
 
 # Default di fallback per preset non presenti nella tabella sopra (es. nuovi
 # preset aggiunti in futuro a PrefabricatedPaths senza una voce dedicata qui)
@@ -57,13 +105,27 @@ _DEFAULT_N_OBSTACLES = 15
 _DEFAULT_R_MAX = 6.0
 
 
-def get_preset_env_defaults(name: str) -> dict:
-    """Ritorna {'clearance': ..., 'n_obstacles': ..., 'r_max': ...} per il preset
-    richiesto, usando i default generici se il preset non ha una voce dedicata."""
+def get_preset_env_defaults(name: str, variant: str = "type2") -> dict:
+    """
+    Ritorna {'clearance': ..., 'n_obstacles': ..., 'r_max': ...} per il preset
+    e la variante richiesta ("type1", "type2", "type3").
+    Usa default generici se il preset o la variante non esistono.
+    """
     key = name.lower().strip()
-    return PRESET_ENV_CONFIG.get(
-        key,
-        {"clearance": _DEFAULT_CLEARANCE, "n_obstacles": _DEFAULT_N_OBSTACLES, "r_max": _DEFAULT_R_MAX},
+    variant_key = variant.lower().strip()
+
+    # 1. Cerca il tracciato. Se non esiste, ritorna un dizionario vuoto
+    track_variants = PRESET_ENV_CONFIG.get(key, {})
+
+    # 2. Cerca la variante dentro il tracciato. Se non esiste (o se il tracciato
+    # era vuoto), ritorna i valori di fallback universali.
+    return track_variants.get(
+        variant_key,
+        {
+            "clearance": _DEFAULT_CLEARANCE,
+            "n_obstacles": _DEFAULT_N_OBSTACLES,
+            "r_max": _DEFAULT_R_MAX
+        }
     )
 
 
@@ -302,41 +364,50 @@ _ENVIRONMENTS_CACHE: dict = {}
 
 
 def get_environment_for_preset(
-        name: str,
-        clearance: float = None,
-        n_obstacles: int = None,
+    name: str,
+    variant: str = "type2",
+    clearance: float = None,
+    n_obstacles: int = None,
 ) -> Environment:
     """
-    Ritorna l'Environment deterministico associato al preset richiesto.
+    Ritorna l'Environment deterministico associato al preset e alla variante richiesta.
 
     Se 'clearance' e/o 'n_obstacles' non vengono specificati, si usano i
-    default definiti in PRESET_ENV_CONFIG per quel preset (ogni percorso ha
-    la propria configurazione sensata in base a estensione e complessità).
+    default definiti in PRESET_ENV_CONFIG per quel preset e variante (ogni percorso
+    ha la propria configurazione sensata in base a estensione, complessità e difficoltà).
     Passa esplicitamente i parametri per sovrascrivere i default.
 
     Costruito una sola volta al primo utilizzo (per una data combinazione di
-    nome/clearance/n_obstacles) e poi cache-ato: chiamate successive con gli
+    nome/variante/clearance/n_obstacles) e poi cache-ato: chiamate successive con gli
     stessi parametri ritornano sempre lo stesso oggetto, senza rigenerarlo.
 
     Args:
         name: nome del preset (vedi PrefabricatedPaths.list_presets()).
+        variant: livello di difficoltà o variante (es. "type1", "type2", "type3").
+            Default è "type2".
         clearance: distanza minima (m) degli ostacoli dal percorso. Se None,
-            usa il default specifico del preset.
+            usa il default specifico del preset e della variante.
         n_obstacles: numero di ostacoli da piazzare nell'ambiente. Se None,
-            usa il default specifico del preset.
+            usa il default specifico del preset e della variante.
     """
-    defaults = get_preset_env_defaults(name)
+    # Recupera i default specifici per preset e variante
+    defaults = get_preset_env_defaults(name, variant=variant)
+
+    # Se non sono sovrascritti manualmente, usa i valori della variante
     if clearance is None:
         clearance = defaults["clearance"]
     if n_obstacles is None:
         n_obstacles = defaults["n_obstacles"]
 
-    key = (name.lower().strip(), float(clearance), int(n_obstacles))
+    # La chiave di cache include anche la variante per evitare collisioni
+    key = (name.lower().strip(), variant.lower().strip(), float(clearance), int(n_obstacles))
+
     if key not in _ENVIRONMENTS_CACHE:
         path = PrefabricatedPaths.get_preset(name)
         _ENVIRONMENTS_CACHE[key] = _build_environment_for_path(
             path, clearance=clearance, n_obstacles=n_obstacles
         )
+
     return _ENVIRONMENTS_CACHE[key]
 
 
@@ -373,71 +444,105 @@ def build_all_environments(overrides: dict = None) -> dict:
 
 def plot_all_environments(overrides: dict = None) -> None:
     """
-    Utility di verifica visiva che crea una griglia di sotto-grafici (subplots)
-    per visualizzare tutti gli ambienti definiti nei preset con i relativi percorsi.
-
-    Consente di passare parametri personalizzati (overrides) per sovrascrivere
-    i valori di default di 'clearance' o 'n_obstacles' di ciascun preset.
+    Utility di verifica visiva che crea un'unica finestra interattiva per scorrere
+    tra i diversi tracciati. Per ogni tracciato selezionato, mostra in una griglia
+    1x3 le sue tre varianti ("type1", "type2", "type3") affiancate.
 
     Args:
         overrides: Dizionario opzionale con struttura {nome_preset: {"clearance": ..., "n_obstacles": ...}}
             per personalizzare le configurazioni di uno o più ambienti specifici.
     """
     import matplotlib.pyplot as plt
+    from matplotlib.widgets import Button
 
-    # 1. RECUPERO DEI PRESET E CALCOLO DELLA GRIGLIA
-    # Ottiene la lista di tutti i nomi dei percorsi disponibili
+    # 1. RECUPERO DEI PRESET E DELLE VARIANTI
     presets = PrefabricatedPaths.list_presets()
-    cols = 3  # Fissa il numero di colonne per la griglia di grafici
-    # Calcola il numero di righe necessarie usando la divisione intera arrotondata per eccesso
-    rows = (len(presets) + cols - 1) // cols
 
-    # 2. CREAZIONE DELLA FIGURA E DEGLI ASSI
-    # Inizializza la figura di Matplotlib con le dimensioni proporzionate alle righe
-    fig, axes = plt.subplots(rows, cols, figsize=(15, 4 * rows))
-    # Assicura che 'axes' sia un array 1D piatto per poterlo iterare facilmente tramite un singolo indice
+    # Raccoglie e ordina le varianti disponibili (type1 -> type2 -> type3)
+    all_variants = list(
+        {variant for track in PRESET_ENV_CONFIG.values() for variant in track.keys()}
+    )
+    order_map = {"type1": 0, "type2": 1, "type3": 2}
+    all_variants.sort(key=lambda v: order_map.get(v.lower(), 99))
+
+    overrides = overrides or {}
+
+    # 2. INIZIALIZZAZIONE DELLA FIGURA (1 RIGA x 3 COLONNE PER LE 3 VARIANTI)
+    fig, axes = plt.subplots(1, len(all_variants), figsize=(16, 5), layout="constrained")
     axes = np.atleast_1d(axes).flatten()
 
-    # Se non vengono forniti override, usa un dizionario vuoto di default
-    overrides = overrides or {}
-    i = 0
+    # Margini di sicurezza per distanziare il titolo in alto e i bottoni in basso
+    fig.set_constrained_layout_pads(w_pad=0.03, h_pad=0.03, hspace=0.05, wspace=0.05)
 
-    # 3. GENERAZIONE DEI GRAFICI PER CIASCUN PRESET
-    for i, name in enumerate(presets):
-        ax = axes[i]  # Seleziona il riquadro corrente nella griglia
+    # Stato locale per tracciare l'indice del TRACCIATO attivo
+    state = {"current_preset_idx": 0}
 
-        # Recupera le configurazioni predefinite del preset corrente
-        defaults = get_preset_env_defaults(name)
-        # Sovrascrive i default con eventuali parametri forniti in 'overrides'
-        cfg = {**defaults, **overrides.get(name, {})}
+    # 3. FUNZIONE DI AGGIORNAMENTO DEL GRAFICO PER IL TRACCIATO CORRENTE
+    def update_plot():
+        preset_name = presets[state["current_preset_idx"]]
+        path = PrefabricatedPaths.get_preset(preset_name)
 
-        # Carica i punti del percorso e l'ambiente associato (con o senza cache)
-        path = PrefabricatedPaths.get_preset(name)
-        env = get_environment_for_preset(name, clearance=cfg["clearance"], n_obstacles=cfg["n_obstacles"])
+        # Mostra affiancate le 3 varianti (type1, type2, type3) del tracciato corrente
+        for i, variant in enumerate(all_variants):
+            ax = axes[i]
+            ax.clear()  # Pulisce il riquadro prima di ridisegnare
 
-        # Disegna gli ostacoli dell'ambiente sul riquadro corrente
-        env.plot(ax=ax)
+            # Recupera i parametri di default per la variante e applica eventuali override
+            defaults = get_preset_env_defaults(preset_name, variant=variant)
+            cfg = {**defaults, **overrides.get(preset_name, {})}
 
-        # Disegna la traiettoria di riferimento come una linea tratteggiata verde
-        ax.plot(path[:, 0], path[:, 1], 'g--', linewidth=2, label="Percorso")
+            # Carica l'ambiente per il tracciato e la variante specifica
+            env = get_environment_for_preset(
+                preset_name,
+                variant=variant,
+                clearance=cfg["clearance"],
+                n_obstacles=cfg["n_obstacles"],
+            )
 
-        # Configura titolo, legenda e proporzioni degli assi del grafico
-        ax.set_title(
-            f"{name} (clearance={cfg['clearance']}, n={cfg['n_obstacles']}, piazzati={len(env.obstacles)})",
-            fontsize=9,
+            # Disegna gli ostacoli e il percorso
+            env.plot(ax=ax)
+            ax.plot(path[:, 0], path[:, 1], 'g--', linewidth=2, label="Percorso")
+
+            # Configura il titolo del singolo sotto-grafico
+            ax.set_title(
+                f"Variante: {variant.upper()}\n"
+                f"(clearance={cfg['clearance']}, n={cfg['n_obstacles']}, piazzati={len(env.obstacles)})",
+                fontsize=10,
+            )
+            ax.legend(fontsize=8)
+            ax.set_aspect('equal', 'box')
+
+        # Titolo generale con l'indicazione del tracciato corrente e del progresso
+        fig.suptitle(
+            f"Tracciato: {preset_name.upper()} ({state['current_preset_idx'] + 1}/{len(presets)})",
+            fontsize=14,
+            fontweight='bold',
         )
-        ax.legend(fontsize=8)
-        # Mantiene le proporzioni 1:1 tra gli assi X e Y per non distorcere le forme
-        ax.set_aspect('equal', 'box')
+        fig.canvas.draw_idle()
 
-    # 4. PULIZIA DEI RIQUADRI VUOTI
-    # Se il numero totale di preset non riempie perfettamente la griglia (rows * cols),
-    # rimuove i sotto-grafici rimasti inutilizzati per un layout pulito
-    for j in range(i + 1, len(axes)):
-        fig.delaxes(axes[j])
+    # 4. CREAZIONE DEI BOTTONI INTERATTIVI (INDIETRO / AVANTI TRACCIATO)
+    # Posizionati con uno spazio dedicato in basso per evitare sovrapposizioni
+    ax_prev = fig.add_axes([0.38, 0.02, 0.10, 0.05])
+    ax_next = fig.add_axes([0.52, 0.02, 0.10, 0.05])
 
-    # Aggiusta automaticamente la spaziatura tra i grafici e mostra la finestra
-    plt.tight_layout()
+    btn_prev = Button(ax_prev, '◄ Indietro', color='lightgray', hovercolor='0.9')
+    btn_next = Button(ax_next, 'Avanti ►', color='lightgray', hovercolor='0.9')
+
+    # Callback per passare al tracciato successivo
+    def next_preset(event):
+        state["current_preset_idx"] = (state["current_preset_idx"] + 1) % len(presets)
+        update_plot()
+
+    # Callback per passare al tracciato precedente
+    def prev_preset(event):
+        state["current_preset_idx"] = (state["current_preset_idx"] - 1) % len(presets)
+        update_plot()
+
+    btn_next.on_clicked(next_preset)
+    btn_prev.on_clicked(prev_preset)
+
+    # Disegna il primo tracciato all'apertura
+    update_plot()
     plt.show()
 
 

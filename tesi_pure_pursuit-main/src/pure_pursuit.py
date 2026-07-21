@@ -38,7 +38,7 @@ class PurePursuitController:
         # Indice di progresso lungo il path: serve a non cercare punti del percorso già superati
         self._last_idx = 0
 
-        # Gestione interruzione[cite: 13]
+        # Gestione interruzione
         self.stop_tolerance = stop_tolerance
         self.max_index_gap = max_index_gap
 
@@ -79,8 +79,13 @@ class PurePursuitController:
         # Inizia a cercare partendo dall'ultimo indice visitato, per non guardare indietro
         start_index = min(self._last_idx, n - 2)
 
-        # Scorre i segmenti del percorso
-        for i in range(start_index, n - 1):
+        # DEFINISCI UNA FINESTRA DI RICERCA
+        # Cerca al massimo per i prossimi 50 waypoint, senza scorrere tutto l'array
+        search_window = 50
+        end_index = min(start_index + search_window, n - 1)
+
+        # Scorre i segmenti del percorso limitati dalla finestra di ricerca
+        for i in range(start_index, end_index):
             # Trasla il segmento di percorso ponendo il robot all'origine (0,0) per facilitare i calcoli
             p1 = path[i, :2] - current_pos
             p2 = path[i + 1, :2] - current_pos

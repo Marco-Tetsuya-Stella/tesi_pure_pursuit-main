@@ -51,8 +51,8 @@ class PathGenerator:
         Returns:
             Array numpy di forma (num_points, 2) rappresentante l'anello circolare.
         """
-        # Se close_loop è True, endpoint è False per evitare di generare sia 0 che 2*pi (che coinciderebbero)
-        endpoint = not close_loop
+        # Se close_loop è False, endpoint è False per evitare di generare sia 0 che 2*pi (che coinciderebbero)
+        endpoint = close_loop
 
         # Genera un array di angoli (in radianti) da 0 a 360 gradi (2*pigreco)
         thetas = np.linspace(0, 2 * np.pi, num_points, endpoint=endpoint)
