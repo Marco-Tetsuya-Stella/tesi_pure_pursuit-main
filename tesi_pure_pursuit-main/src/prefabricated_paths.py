@@ -167,6 +167,36 @@ class PrefabricatedPaths:
         ]
         return PathGenerator.custom_polygon(vertices, points_per_segment=40, close_loop=True)
 
+    @staticmethod
+    def get_pista_3() -> np.ndarray:
+        """
+        Genera un circuito chiuso asimmetrico e complesso.
+        Faccio 2 giri per testare la loop closure
+
+        Returns:
+            np.ndarray: Array Nx2 interpolato su una serie di vertici irregolari.
+        """
+        # Lista di waypoint chiave che simulano curve e rettilinei di una pista
+        vertices = [
+            (0.0, 0.0),
+            (10.0, 0.0),
+            (7.0, 0.5),
+            (11.0, 1.0),
+            (10.0, 5),
+            (0.0, 5.0),
+            (3.0, 4.5),
+            (0.0, 4.0),
+            (0.0, 0.0),
+            (10.0, 0.0),
+            (7.0, 0.5),
+            (11.0, 1.0),
+            (10.0, 5),
+            (0.0, 5.0),
+            (3.0, 4.5),
+            (0.0, 4.0),
+        ]
+        return PathGenerator.custom_polygon(vertices, points_per_segment=40, close_loop=True)
+
     @classmethod
     def get_preset(cls, name: str) -> np.ndarray:
         """
@@ -193,7 +223,8 @@ class PrefabricatedPaths:
             "eight": cls.get_standard_eight,
             "square": cls.get_square_circuit,
             "pista_f1": cls.get_f1_racetrack,
-            "pista_2": cls.get_pista_2
+            "pista_2": cls.get_pista_2,
+            "pista_3_(2_giri)": cls.get_pista_3
         }
 
         # Pulisce la stringa (rimuove spazi vuoti e mette in minuscolo) per evitare errori di battitura
@@ -217,7 +248,6 @@ class PrefabricatedPaths:
         # Ritorna semplicemente l'elenco hardware-coded dei nomi validi
         return [
             "straight_short",
-            "straight_long",
             "circle_medium",
             "circle_large",
             "tight_slalom",
@@ -225,9 +255,12 @@ class PrefabricatedPaths:
             "eight",
             "square",
             "pista_f1",
-            "pista_2"
+            "pista_2",
+            "pista_3_(2_giri)"
         ]
 
+
+#"straight_long",
 
 # --- Utility helper ---
 

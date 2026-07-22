@@ -387,119 +387,70 @@ def run_simulation(
     }
 
 
-def plot_comparison(res_ideal_no_lc: dict, res_ideal_lc: dict,
-                    res_noisy_no_lc: dict, res_noisy_lc: dict,
-                    path_name: str = "tight_slalom") -> None:
-    """
-    Crea un grafico a griglia 2x2 per confrontare visivamente i risultati
-    della navigazione testando tutte e quattro le combinazioni possibili:
-    odometria ideale vs rumorosa, combinate con e senza il sistema di loop closure.
-
-    Args:
-        res_ideal_no_lc: Dizionario dei risultati con odometria ideale e senza loop closure.
-        res_ideal_lc: Dizionario dei risultati con odometria ideale e con loop closure attivo.
-        res_noisy_no_lc: Dizionario dei risultati con odometria rumorosa e senza loop closure.
-        res_noisy_lc: Dizionario dei risultati con odometria rumorosa e con loop closure attivo.
-        path_name: Nome del preset usato, per scopi di titolazione.
-    """
-    # Creiamo una griglia 2x2 per mostrare le 4 combinazioni
-    fig, axes = plt.subplots(2, 2, figsize=(20, 16), sharex=True, sharey=True)
-
-    # Appiattiamo l'array degli assi (da 2x2 a 1D) per iterare più facilmente
-    axes = axes.flatten()
-
-    results = [res_ideal_no_lc, res_ideal_lc, res_noisy_no_lc, res_noisy_lc]
-
-    # Prepara i titoli estraendo le metriche calcolate nelle varie simulazioni
-    titles = [
-        f"IDEALE | SENZA Loop Closure\n(ICP scartati: {res_ideal_no_lc['n_icp_rejected']}/{res_ideal_no_lc['n_icp_accepted'] + res_ideal_no_lc['n_icp_rejected']})",
-        f"IDEALE | CON Loop Closure\n(Loop: {res_ideal_lc['n_loops']} | ICP scart: {res_ideal_lc['n_icp_rejected']}/{res_ideal_lc['n_icp_accepted'] + res_ideal_lc['n_icp_rejected']})",
-        f"RUMOROSA | SENZA Loop Closure\n(ICP scartati: {res_noisy_no_lc['n_icp_rejected']}/{res_noisy_no_lc['n_icp_accepted'] + res_noisy_no_lc['n_icp_rejected']})",
-        f"RUMOROSA | CON Loop Closure\n(Loop: {res_noisy_lc['n_loops']} | ICP scart: {res_noisy_lc['n_icp_rejected']}/{res_noisy_lc['n_icp_accepted'] + res_noisy_lc['n_icp_rejected']})"
-    ]
-
-    # Itera sui quattro scenari per disegnare i rispettivi grafici
-    for ax, res, title in zip(axes, results, titles):
-        # 1. Disegna gli ostacoli in grigio per fornire contesto spaziale
-        env = res["env"]
-        for obstacle in env.obstacles:
-            x_obs, y_obs = obstacle.exterior.xy
-            ax.fill(x_obs, y_obs, color='gray', alpha=0.5)
-
-        # Estrai i dati di navigazione dal dizionario
-        path = res["path"]
-        robot_history = res["robot_history"]
-        estimated_history = res["estimated_history"]
-
-        # 2. Disegna i tre strati informativi (percorso teorico, posizione reale, posizione stimata dal robot)
-        ax.plot(path[:, 0], path[:, 1], 'g--', label='Percorso Riferimento')
-        ax.plot(robot_history[:, 0], robot_history[:, 1], 'b-', label='Robot Traiettoria Reale')
-        ax.plot(estimated_history[:, 0], estimated_history[:, 1], 'r.', markersize=3, label='Stima ICP + Odom')
-
-        # 3. Formattazione del singolo grafico (legenda, griglia, proporzioni)
-        ax.legend(loc='lower right', fontsize='small')
-        ax.grid(True)
-        ax.set_aspect('equal')
-        ax.set_title(title, fontweight="bold")
-
-    # Recupera il nome della variante ambientale (default "Sconosciuta" se mancante)
-    variant_name = res_ideal_lc.get("variant", "Sconosciuta").upper()
-
-    # Aggiunge il titolo globale all'intera figura
-    fig.suptitle(f"Pure Pursuit ICP — Odometria IDEALE vs RUMOROSA su '{path_name}' | Variante: {variant_name}",
-                 fontsize=16, y=0.95)
-
-    # Aggiusta il layout per evitare sovrapposizioni tra i grafici e i titoli
-    plt.tight_layout(rect=[0, 0, 1, 0.93])
-    plt.show()
-
-
-def main():
-    """
-    Funzione d'ingresso principale (entry point) dello script.
-    Avvia una suite di test comparativi completi su tutte le piste e varianti disponibili.
-    Esegue il confronto tra odometria ideale e rumorosa, incrociato con l'attivazione
-    o disattivazione del sistema di loop closure (4 combinazioni per ogni variante).
-    Ogni preset/variante produce la propria figura con una griglia 2x2 di pannelli.
-    """
-    # Recupera tutti i nomi dei percorsi programmati (es. circolare, quadrato, slalom)
-    path_names = PrefabricatedPaths.list_presets()
-
-    # Definisce le varianti ambientali e di percorso da testare per ciascun preset
-    variants = ["type1", "type2", "type3"]
-
-    # Itera su ciascun percorso per eseguire i test
-    for path_name in path_names:
-        # Itera su ciascuna variante del percorso corrente
-        for variant in variants:
-            print(f"\n{'=' * 70}")
-            print(f"PRESET: {path_name} | VARIANTE: {variant.upper()}")
-            print(f"{'=' * 70}")
-
-            # 1. Esegue la simulazione di base (solo odometria perfetta + ICP scan-to-map)
-            print(f"\n[1/4] Esecuzione ODOMETRIA IDEALE (SENZA Loop Closure)...")
-            res_ideal_no_lc = run_simulation(path_name=path_name, variant=variant, use_loop_closure=False,
-                                             add_odom_noise=False, verbose=False)
-
-            # 2. Esegue la simulazione con odometria perfetta, attivando il sistema di loop closure
-            print(f"[2/4] Esecuzione ODOMETRIA IDEALE (CON Loop Closure)...")
-            res_ideal_lc = run_simulation(path_name=path_name, variant=variant, use_loop_closure=True,
-                                          add_odom_noise=False, verbose=False)
-
-            # 3. Esegue la simulazione introducendo rumore odometrico, affidandosi solo all'ICP per correggere
-            print(f"[3/4] Esecuzione ODOMETRIA RUMOROSA (SENZA Loop Closure)...")
-            res_noisy_no_lc = run_simulation(path_name=path_name, variant=variant, use_loop_closure=False,
-                                             add_odom_noise=True, verbose=False)
-
-            # 4. Esegue la simulazione completa con odometria rumorosa e correzioni tramite loop closure
-            print(f"[4/4] Esecuzione ODOMETRIA RUMOROSA (CON Loop Closure)...")
-            res_noisy_lc = run_simulation(path_name=path_name, variant=variant, use_loop_closure=True,
-                                          add_odom_noise=True, verbose=False)
-
-            # Confronto grafico a griglia 2x2 per questo specifico preset e variante
-            print(f"\n>>> Simulazioni completate per {path_name} - {variant}. Generazione grafico...")
-            plot_comparison(res_ideal_no_lc, res_ideal_lc, res_noisy_no_lc, res_noisy_lc, path_name=path_name)
+# def plot_comparison(res_ideal_no_lc: dict, res_ideal_lc: dict,
+#                     res_noisy_no_lc: dict, res_noisy_lc: dict,
+#                     path_name: str = "tight_slalom") -> None:
+#     """
+#     Crea un grafico a griglia 2x2 per confrontare visivamente i risultati
+#     della navigazione testando tutte e quattro le combinazioni possibili:
+#     odometria ideale vs rumorosa, combinate con e senza il sistema di loop closure.
+#
+#     Args:
+#         res_ideal_no_lc: Dizionario dei risultati con odometria ideale e senza loop closure.
+#         res_ideal_lc: Dizionario dei risultati con odometria ideale e con loop closure attivo.
+#         res_noisy_no_lc: Dizionario dei risultati con odometria rumorosa e senza loop closure.
+#         res_noisy_lc: Dizionario dei risultati con odometria rumorosa e con loop closure attivo.
+#         path_name: Nome del preset usato, per scopi di titolazione.
+#     """
+#     # Creiamo una griglia 2x2 per mostrare le 4 combinazioni
+#     fig, axes = plt.subplots(2, 2, figsize=(20, 16), sharex=True, sharey=True)
+#
+#     # Appiattiamo l'array degli assi (da 2x2 a 1D) per iterare più facilmente
+#     axes = axes.flatten()
+#
+#     results = [res_ideal_no_lc, res_ideal_lc, res_noisy_no_lc, res_noisy_lc]
+#
+#     # Prepara i titoli estraendo le metriche calcolate nelle varie simulazioni
+#     titles = [
+#         f"IDEALE | SENZA Loop Closure\n(ICP scartati: {res_ideal_no_lc['n_icp_rejected']}/{res_ideal_no_lc['n_icp_accepted'] + res_ideal_no_lc['n_icp_rejected']})",
+#         f"IDEALE | CON Loop Closure\n(Loop: {res_ideal_lc['n_loops']} | ICP scart: {res_ideal_lc['n_icp_rejected']}/{res_ideal_lc['n_icp_accepted'] + res_ideal_lc['n_icp_rejected']})",
+#         f"RUMOROSA | SENZA Loop Closure\n(ICP scartati: {res_noisy_no_lc['n_icp_rejected']}/{res_noisy_no_lc['n_icp_accepted'] + res_noisy_no_lc['n_icp_rejected']})",
+#         f"RUMOROSA | CON Loop Closure\n(Loop: {res_noisy_lc['n_loops']} | ICP scart: {res_noisy_lc['n_icp_rejected']}/{res_noisy_lc['n_icp_accepted'] + res_noisy_lc['n_icp_rejected']})"
+#     ]
+#
+#     # Itera sui quattro scenari per disegnare i rispettivi grafici
+#     for ax, res, title in zip(axes, results, titles):
+#         # 1. Disegna gli ostacoli in grigio per fornire contesto spaziale
+#         env = res["env"]
+#         for obstacle in env.obstacles:
+#             x_obs, y_obs = obstacle.exterior.xy
+#             ax.fill(x_obs, y_obs, color='gray', alpha=0.5)
+#
+#         # Estrai i dati di navigazione dal dizionario
+#         path = res["path"]
+#         robot_history = res["robot_history"]
+#         estimated_history = res["estimated_history"]
+#
+#         # 2. Disegna i tre strati informativi (percorso teorico, posizione reale, posizione stimata dal robot)
+#         ax.plot(path[:, 0], path[:, 1], 'g--', label='Percorso Riferimento')
+#         ax.plot(robot_history[:, 0], robot_history[:, 1], 'b-', label='Robot Traiettoria Reale')
+#         ax.plot(estimated_history[:, 0], estimated_history[:, 1], 'r.', markersize=3, label='Stima ICP + Odom')
+#
+#         # 3. Formattazione del singolo grafico (legenda, griglia, proporzioni)
+#         ax.legend(loc='lower right', fontsize='small')
+#         ax.grid(True)
+#         ax.set_aspect('equal')
+#         ax.set_title(title, fontweight="bold")
+#
+#     # Recupera il nome della variante ambientale (default "Sconosciuta" se mancante)
+#     variant_name = res_ideal_lc.get("variant", "Sconosciuta").upper()
+#
+#     # Aggiunge il titolo globale all'intera figura
+#     fig.suptitle(f"Pure Pursuit ICP — Odometria IDEALE vs RUMOROSA su '{path_name}' | Variante: {variant_name}",
+#                  fontsize=16, y=0.95)
+#
+#     # Aggiusta il layout per evitare sovrapposizioni tra i grafici e i titoli
+#     plt.tight_layout(rect=[0, 0, 1, 0.93])
+#     plt.show()
 
 
-if __name__ == "__main__":
-    main()
