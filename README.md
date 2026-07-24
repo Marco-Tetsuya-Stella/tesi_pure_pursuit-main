@@ -1,6 +1,6 @@
 # README - Pure Pursuit Robot System
 
-> **Aggiornato al 22/07/2026:** Gli aggiornamenti sono scritti in fondo al testo.
+> **Aggiornato al 24/07/2026:** Gli aggiornamenti sono scritti in fondo al testo.
 >
 > **Nota:** File README non definitivo.
 
@@ -73,3 +73,23 @@ open3d==0.19.0
 - **`pure_pursuit_simulation.py`**:
   - Permette ora di eseguire 4 tipi di test per tipologia di tracciato, scegliendo se attivare o meno il rumore all'odometria e se usare o meno la loop closure.
 - **`noisy_odometry.py`**: simula un'odometria con rumore realistico e intermittente.
+
+
+## Aggiornamento 24/07/2026
+
+### 1. Visualizzatore Grafico (`visualizer_pure_pursuit.py`)
+Creazione del modulo **`visualizer_pure_pursuit`** che si occupa di visualizzare graficamente i risultati degli esperimenti e di salvene i grafici.
+* Permette di confrontare la traiettoria di riferimento con la traiettoria effettiva percorsa dal veicolo.
+* Consente l'analisi degli errori di inseguimento e dei parametri di controllo.
+
+### 2. Nuovi Percorsi Predefiniti (`prefabricated_paths.py`)
+Aggiunta di due nuovi path all'interno del file **`prefabricated_paths.py`**:
+* **`pista_3`**: Esegue due giri completi e presenta alcune curve strettissime per valutare la stabilità e la continuità del tracciamento sul lungo periodo.
+* **`contapassi`**: Path formato da una serie di curve ad angolo acuto (molto stretto), progettato per analizzare le differenze di comportamento in base ai vari valori della distanza di *look-ahead*.
+
+### 3. Script Principale (`main_pure_pursuit.py`)
+Aggiunta del file **`main_pure_pursuit.py`** con il compito di orchestrare ed eseguire l'intero flusso di simulazione ed esperimenti.
+
+### 4. Esperimenti Multi-Lookahead
+Aggiunta la possibilità di eseguire gli esperimenti con differenti distanze di *look-ahead* ($L_d$), consentendo un'analisi comparativa approfondita delle prestazioni sui diversi tracciati.
+
