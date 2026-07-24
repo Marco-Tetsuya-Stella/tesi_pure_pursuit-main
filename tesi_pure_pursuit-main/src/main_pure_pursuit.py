@@ -1,21 +1,21 @@
 from prefabricated_paths import PrefabricatedPaths
-
-# IMPORTANTE: Assicurati di importare run_simulation dal file corretto dove è definita
 from pure_pursuit_simulation import run_simulation
-from visualizer_pure_pursuit import plot_comparison
+# Importata la funzione per il salvataggio automatico del singolo gruppo
+from visualizer_pure_pursuit import InteractiveVisualizer, export_group_plots
 
 
 def main():
     """
-    Funzione d'ingresso principale (entry point) dello script.
-    Avvia una suite di test comparativi completi su tutte le piste e varianti disponibili,
-    testando 3 diversi valori di look ahead distance.
+    Funzione d'ingresso principale dello script.
+    Avvia la suite di test, salva i grafici su disco ad ogni iterazione (Opzione B)
+    e raggruppa i risultati per poi aprirli nel visualizzatore interattivo.
     """
     path_names = PrefabricatedPaths.list_presets()
-    variants = ["type1", "type2", "type3"]
+    variants = ["type1"]
+    lookahead_distances = [0.2, 0.4, 0.6]  # array di valori di lookahead
 
-    # Definiamo i 3 valori differenti per la Look Ahead Distance
-    lookahead_distances = [0.2, 0.4, 0.6]
+    # Lista che conterrà tutti i setup. Ogni setup raggruppa le 4 categorie.
+    all_experiment_groups = []
 
     for path_name in path_names:
         for variant in variants:
@@ -48,14 +48,32 @@ def main():
                     add_odom_noise=True, lookahead_distance=ld, verbose=False
                 )
 
-                print(
-                    f"\n>>> Simulazioni completate per {path_name} - {variant} (Look Ahead: {ld}m). Generazione grafico...")
+                # Raggruppa l'esperimento corrente
+                group = {
+                    "path_name": path_name,
+                    "variant": variant,
+                    "ld": ld,
+                    "ideal_no_lc": res_ideal_no_lc,
+                    "ideal_lc": res_ideal_lc,
+                    "noisy_no_lc": res_noisy_no_lc,
+                    "noisy_lc": res_noisy_lc
+                }
 
-                # Chiamata al nuovo modulo di visualizzazione, passando il valore ld
-                plot_comparison(
-                    res_ideal_no_lc, res_ideal_lc, res_noisy_no_lc, res_noisy_lc,
-                    path_name=path_name, lookahead_distance=ld
-                )
+                # ------------------------------------------------------------------
+                # OPZIONE B: Salvataggio automatico ed immediato del gruppo su disco
+                # ------------------------------------------------------------------
+                print(f"Salvataggio automatico grafici per {path_name}_{variant}_ld{ld}...")
+                export_group_plots(group)
+                # ------------------------------------------------------------------
+
+                all_experiment_groups.append(group)
+
+    print("\n>>> Tutte le simulazioni e i salvataggi su disco sono stati completati.")
+    print(">>> Avvio della visualizzazione interattiva...")
+
+    # Avvia la classe visualizer e mostra la schermata
+    visualizer = InteractiveVisualizer(all_experiment_groups)
+    visualizer.show()
 
 
 if __name__ == "__main__":

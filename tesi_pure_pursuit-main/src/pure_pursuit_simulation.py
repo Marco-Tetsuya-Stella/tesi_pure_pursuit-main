@@ -50,7 +50,7 @@ def run_simulation(
         use_loop_closure: bool = True,
         add_odom_noise: bool = False,
         dt: float = 0.05,
-        total_steps: int = 10000,
+        total_steps: int = 7000,    #10000,
         loop_cooldown: int = 40,
         loop_min_separation: int = 150,
         loop_search_radius: float = 0.8,
@@ -386,71 +386,5 @@ def run_simulation(
         "loop_closure_enabled": use_loop_closure
     }
 
-
-# def plot_comparison(res_ideal_no_lc: dict, res_ideal_lc: dict,
-#                     res_noisy_no_lc: dict, res_noisy_lc: dict,
-#                     path_name: str = "tight_slalom") -> None:
-#     """
-#     Crea un grafico a griglia 2x2 per confrontare visivamente i risultati
-#     della navigazione testando tutte e quattro le combinazioni possibili:
-#     odometria ideale vs rumorosa, combinate con e senza il sistema di loop closure.
-#
-#     Args:
-#         res_ideal_no_lc: Dizionario dei risultati con odometria ideale e senza loop closure.
-#         res_ideal_lc: Dizionario dei risultati con odometria ideale e con loop closure attivo.
-#         res_noisy_no_lc: Dizionario dei risultati con odometria rumorosa e senza loop closure.
-#         res_noisy_lc: Dizionario dei risultati con odometria rumorosa e con loop closure attivo.
-#         path_name: Nome del preset usato, per scopi di titolazione.
-#     """
-#     # Creiamo una griglia 2x2 per mostrare le 4 combinazioni
-#     fig, axes = plt.subplots(2, 2, figsize=(20, 16), sharex=True, sharey=True)
-#
-#     # Appiattiamo l'array degli assi (da 2x2 a 1D) per iterare più facilmente
-#     axes = axes.flatten()
-#
-#     results = [res_ideal_no_lc, res_ideal_lc, res_noisy_no_lc, res_noisy_lc]
-#
-#     # Prepara i titoli estraendo le metriche calcolate nelle varie simulazioni
-#     titles = [
-#         f"IDEALE | SENZA Loop Closure\n(ICP scartati: {res_ideal_no_lc['n_icp_rejected']}/{res_ideal_no_lc['n_icp_accepted'] + res_ideal_no_lc['n_icp_rejected']})",
-#         f"IDEALE | CON Loop Closure\n(Loop: {res_ideal_lc['n_loops']} | ICP scart: {res_ideal_lc['n_icp_rejected']}/{res_ideal_lc['n_icp_accepted'] + res_ideal_lc['n_icp_rejected']})",
-#         f"RUMOROSA | SENZA Loop Closure\n(ICP scartati: {res_noisy_no_lc['n_icp_rejected']}/{res_noisy_no_lc['n_icp_accepted'] + res_noisy_no_lc['n_icp_rejected']})",
-#         f"RUMOROSA | CON Loop Closure\n(Loop: {res_noisy_lc['n_loops']} | ICP scart: {res_noisy_lc['n_icp_rejected']}/{res_noisy_lc['n_icp_accepted'] + res_noisy_lc['n_icp_rejected']})"
-#     ]
-#
-#     # Itera sui quattro scenari per disegnare i rispettivi grafici
-#     for ax, res, title in zip(axes, results, titles):
-#         # 1. Disegna gli ostacoli in grigio per fornire contesto spaziale
-#         env = res["env"]
-#         for obstacle in env.obstacles:
-#             x_obs, y_obs = obstacle.exterior.xy
-#             ax.fill(x_obs, y_obs, color='gray', alpha=0.5)
-#
-#         # Estrai i dati di navigazione dal dizionario
-#         path = res["path"]
-#         robot_history = res["robot_history"]
-#         estimated_history = res["estimated_history"]
-#
-#         # 2. Disegna i tre strati informativi (percorso teorico, posizione reale, posizione stimata dal robot)
-#         ax.plot(path[:, 0], path[:, 1], 'g--', label='Percorso Riferimento')
-#         ax.plot(robot_history[:, 0], robot_history[:, 1], 'b-', label='Robot Traiettoria Reale')
-#         ax.plot(estimated_history[:, 0], estimated_history[:, 1], 'r.', markersize=3, label='Stima ICP + Odom')
-#
-#         # 3. Formattazione del singolo grafico (legenda, griglia, proporzioni)
-#         ax.legend(loc='lower right', fontsize='small')
-#         ax.grid(True)
-#         ax.set_aspect('equal')
-#         ax.set_title(title, fontweight="bold")
-#
-#     # Recupera il nome della variante ambientale (default "Sconosciuta" se mancante)
-#     variant_name = res_ideal_lc.get("variant", "Sconosciuta").upper()
-#
-#     # Aggiunge il titolo globale all'intera figura
-#     fig.suptitle(f"Pure Pursuit ICP — Odometria IDEALE vs RUMOROSA su '{path_name}' | Variante: {variant_name}",
-#                  fontsize=16, y=0.95)
-#
-#     # Aggiusta il layout per evitare sovrapposizioni tra i grafici e i titoli
-#     plt.tight_layout(rect=[0, 0, 1, 0.93])
-#     plt.show()
 
 

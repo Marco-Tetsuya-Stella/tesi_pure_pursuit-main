@@ -108,7 +108,7 @@ class PrefabricatedPaths:
         return PathGenerator.custom_polygon(vertices, points_per_segment=35, close_loop=True)
 
     @staticmethod
-    def get_f1_racetrack() -> np.ndarray:
+    def get_pista_1() -> np.ndarray:
         """
         Genera un circuito chiuso asimmetrico e complesso.
 
@@ -197,6 +197,34 @@ class PrefabricatedPaths:
         ]
         return PathGenerator.custom_polygon(vertices, points_per_segment=40, close_loop=True)
 
+    @staticmethod
+    def get_contapassi() -> np.ndarray:
+        """
+            Pista creata per testare il numero di passi
+
+        Returns:
+            np.ndarray: Array Nx2 interpolato su una serie di vertici irregolari.
+        """
+        # Lista di waypoint chiave che simulano curve e rettilinei di una pista
+        vertices = [
+            (0.0, 0.0),
+            (4.0, 0.0), #usato per calcolare numero di passi nel rettilineo
+            (4.5, 5.0),         #usato per calcolare numero di passi
+            (5.0, -5.0),        #in curve strette a seconda del valore del
+            (5.5, 5.0),         #lookahead
+            (6.0, -5.0),
+            (6.5, 5.0),
+            (7.0, -5.0),
+            (7.5, 5.0),
+            (8.0, -5.0),
+            (8.5, 5.0),
+            (9.0, -5.0),
+            (9.5, 5.0),
+            (10.0, 0.0),
+            (12.0, 0.0)
+        ]
+        return PathGenerator.custom_polygon(vertices, points_per_segment=40, close_loop=False)
+
     @classmethod
     def get_preset(cls, name: str) -> np.ndarray:
         """
@@ -216,13 +244,14 @@ class PrefabricatedPaths:
         presets = {
             "straight_short": cls.get_straight_short,
             "straight_long": cls.get_straight_long,
+            "contapassi": cls.get_contapassi,
             "circle_medium": cls.get_circle_medium,
             "circle_large": cls.get_circle_large,
             "tight_slalom": cls.get_tight_slalom,
             "wide_slalom": cls.get_wide_slalom,
             "eight": cls.get_standard_eight,
             "square": cls.get_square_circuit,
-            "pista_f1": cls.get_f1_racetrack,
+            "pista_1": cls.get_pista_1,
             "pista_2": cls.get_pista_2,
             "pista_3_(2_giri)": cls.get_pista_3
         }
@@ -247,20 +276,35 @@ class PrefabricatedPaths:
         """
         # Ritorna semplicemente l'elenco hardware-coded dei nomi validi
         return [
-            "straight_short",
-            "circle_medium",
-            "circle_large",
-            "tight_slalom",
-            "wide_slalom",
-            "eight",
-            "square",
-            "pista_f1",
-            "pista_2",
-            "pista_3_(2_giri)"
+            "contapassi"
         ]
 
 
+# Lista path disponibili
+#"straight_short",
 #"straight_long",
+#"contapassi",
+# "circle_medium",
+#"circle_large",
+#"tight_slalom",
+#"wide_slalom",
+#"eight",
+#"square",
+#"pista_1",
+#"pista_2",
+#"pista_3_(2_giri)"
+
+##############
+# "straight_short",
+# "straight_long",
+#             "circle_medium",
+#             "tight_slalom",
+#             "eight",
+#             "square"
+#             "pista_3_(2_giri)"
+# "circle_large",
+# "pista_1"
+#"wide_slalom"
 
 # --- Utility helper ---
 

@@ -55,6 +55,11 @@ PRESET_ENV_CONFIG: dict = {
         "type2":   {"clearance": 0.9, "n_obstacles": 3, "r_max": 12.0},
         "type3":   {"clearance": 0.7, "n_obstacles": 10, "r_max": 6.0},
     },
+    "contapassi": {
+        "type1":   {"clearance": 0.9, "n_obstacles": 0,  "r_max": 6.0},
+        "type2":   {"clearance": 0.9, "n_obstacles": 3, "r_max": 12.0},
+        "type3":   {"clearance": 0.7, "n_obstacles": 10, "r_max": 6.0},
+    },
     "circle_medium": {
         "type1":   {"clearance": 0.9, "n_obstacles": 0,  "r_max": 5.0},
         "type2":   {"clearance": 0.8, "n_obstacles": 2, "r_max": 10.0},
@@ -85,7 +90,7 @@ PRESET_ENV_CONFIG: dict = {
         "type2":   {"clearance": 0.9, "n_obstacles": 4, "r_max": 12.5},
         "type3":   {"clearance": 0.8, "n_obstacles": 10, "r_max": 6.5},
     },
-    "pista_f1": {
+    "pista_1": {
         "type1":   {"clearance": 1.0, "n_obstacles": 0,  "r_max": 7.0},
         "type2":   {"clearance": 0.9, "n_obstacles": 4, "r_max": 14.0},
         "type3":   {"clearance": 0.8, "n_obstacles": 10, "r_max": 7.0},
