@@ -1,3 +1,6 @@
+"""
+ aggiunto per tesi riguradante il pure pursuit
+"""
 import gc  # Garbage Collector per liberare la memoria bitmap di Windows
 import os
 from pathlib import Path
@@ -8,6 +11,7 @@ from scipy.spatial.distance import cdist
 from contextlib import suppress
 
 from visualizer import draw_robot
+
 
 
 # =======================================================
@@ -221,10 +225,6 @@ def plot_environment(ax, env):
 # SALVATAGGIO INCREMENTALE (GRUPPO PER GRUPPO)
 # =======================================================
 
-import gc
-from pathlib import Path
-import numpy as np
-import matplotlib.pyplot as plt
 
 
 def export_group_plots(group, base_dir=None):

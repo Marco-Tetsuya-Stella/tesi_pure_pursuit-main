@@ -87,7 +87,7 @@ class PathGenerator:
         # Calcola le coordinate Y applicando la funzione seno.
         # Si divide xs per wavelength per determinare quante onde intere ci stanno nel percorso.
         # Se dividiamo x per wavelength, scaliamo l'asse orizzontale in termini di "quante onde sono state completate
-        # Quando x = wavelength}, il termine diventa 2*pi*1 = 2*pi, quindi la funzione sin(2\pi) ha completato esattamente 1 onda completa
+        # Quando x = wavelength, il termine diventa 2*pi*1 = 2*pi, quindi la funzione sin(2\pi) ha completato esattamente 1 onda completa
         ys = amplitude * np.sin(2 * np.pi * xs / wavelength)
 
         # Impila le X e le Y in colonne

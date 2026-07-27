@@ -1,6 +1,6 @@
-import numpy as np
-import matplotlib.pyplot as plt
-
+"""
+ aggiunto per tesi riguradante il pure pursuit
+"""
 from robot import Robot
 from lidar import Lidar
 from environment import Environment
@@ -21,27 +21,51 @@ from icp import (
 )
 from noisy_odometry import NoisyOdometry
 
+import open3d as o3d
+import numpy as np
 
-def build_map_world(env: Environment) -> np.ndarray:
+
+def voxel_downsample_2d(points: np.ndarray, voxel_size: float = 0.03) -> np.ndarray:
     """
-        Estrae i punti degli ostacoli per usarli come mappa globale (target) per l'ICP.
+    Riduce il numero di punti 2D raggruppandoli in una griglia di voxel.
+    """
+    if len(points) == 0:
+        return points
 
-        Args:
-            env: L'oggetto Environment contenente gli ostacoli poligonali.
+    # Converte i punti 2D in 3D aggiungendo l'asse Z (z=0)
+    points_3d = np.hstack([points, np.zeros((points.shape[0], 1))])
 
-        Returns:
-            Un array numpy bidimensionale contenente le coordinate (x, y) di tutti i punti
-            che compongono i confini degli ostacoli nell'ambiente.
-        """
+    # Crea la PointCloud per Open3D
+    pcd = o3d.geometry.PointCloud()
+    pcd.points = o3d.utility.Vector3dVector(points_3d)
+
+    # Applica il Voxel Down Sampling
+    pcd_down = pcd.voxel_down_sample(voxel_size)
+
+    # Riconverte i punti in 2D scartando l'asse Z
+    return np.asarray(pcd_down.points)[:, :2]
+
+
+def build_map_world(env: Environment, voxel_size: float = 0.03) -> np.ndarray:
+    """
+    Estrae i punti degli ostacoli per usarli come mappa globale (target) per l'ICP,
+    ottimizzandone la densità tramite Voxel Down Sampling.
+    """
     map_points = []
-    # Scorre tutti gli ostacoli presenti nell'ambiente
     for obstacle in env.obstacles:
-        # Estrae le coordinate x e y del perimetro esterno dell'ostacolo
+        # estrazione punti ostacolo
         x_obs, y_obs = obstacle.exterior.xy
-        # Accoppia le coordinate e le aggiunge alla lista dei punti della mappa
+        # zip crea coppie di elementi che condividono lo stesso indice
         for x, y in zip(x_obs, y_obs):
             map_points.append([x, y])
-    return np.array(map_points)
+
+    raw_map = np.array(map_points)
+
+    # VOXEL DOWN SAMPLING
+    # Riduciamo i punti ridondanti della mappa globale
+    filtered_map = voxel_downsample_2d(raw_map, voxel_size)
+
+    return filtered_map
 
 
 def run_simulation(
@@ -55,7 +79,7 @@ def run_simulation(
         loop_min_separation: int = 150,
         loop_search_radius: float = 0.8,
         lookahead_distance: float = 0.2,
-        min_leave_start_dist: float = 0.5,
+        min_leave_start_dist: float = 0.05,              #0.5
         min_icp_correspondences: int = 8,
         max_icp_rmse: float = 0.3,
         max_icp_angle_correction: float = np.deg2rad(20.0),
@@ -128,10 +152,13 @@ def run_simulation(
     map_world = build_map_world(env)
 
     # Configura il raggio del LiDAR in base all'ambiente se non specificato
+    # Ottiene il valore dal dizionario con parameti degli ambienti così da non dover ogni vola
+    # specificare il suo valore
     if lidar_r_max is None:
         lidar_r_max = get_preset_env_defaults(path_name, variant=variant)["r_max"]
 
     # Inizializza l'orientamento di partenza evitando errori se l'array del percorso ha solo due colonne (X, Y)
+    # Usa il valori del primo e secondo punto
     if path.shape[1] < 3:
         dx_init = path[1, 0] - path[0, 0]
         dy_init = path[1, 1] - path[0, 1]
@@ -142,7 +169,7 @@ def run_simulation(
     # --- 2. Inizializzazione Sensori, Controller e Robot ---
     robot = Robot(x=path[0, 0], y=path[0, 1], theta=initial_theta)
     controller = PurePursuitController(lookahead_distance=lookahead_distance, target_linear_velocity=0.4,
-                                       stop_tolerance=0.1, max_index_gap=30)
+                                       stop_tolerance=0.1, search_window=50)
     lidar = Lidar(n_rays=360, angle_span=2 * np.pi, r_max=lidar_r_max, add_noise=True)
 
     # Prepara le strutture del simulatore per memorizzare i dati
@@ -152,7 +179,11 @@ def run_simulation(
     sim.commands_applied = []
 
     # --- 3. Strutture dati per Localizzazione (Odometria, ICP e Loop Closure) ---
-    # Setup odometria
+    #
+    # INIZIALIZZAZIONE ODOMETRIA
+    #
+    # current_odom_state: stato secondo l'odemtria può differire dalla posizione reale
+
     estimated_pose = robot.state().copy()
     if add_odom_noise:
         noisy_odom = NoisyOdometry(robot.state())
@@ -163,6 +194,8 @@ def run_simulation(
         previous_odom = current_odom_state.copy()
 
     keyframes = []
+    # last_loop_k memorizza l'ultimo step a cui è stato applicato il keyframe
+    # serve per capire se abbiamo fatto abbastanza passi dall'ultimo key frame
     last_loop_k = -10 ** 9
     n_loops = n_loop_rejected = n_icp_accepted = n_icp_rejected = 0
 
@@ -170,6 +203,7 @@ def run_simulation(
     # Flag per gestire correttamente i percorsi chiusi (dove path[-1] ≈ path[0]):
     # la condizione di arrivo viene valutata solo dopo che il robot si è
     # effettivamente allontanato dal punto di partenza.
+    # left_start è per capire se mi sono allontanato dal punto di partenza
     start_pos = path[0, :2].copy()
     left_start = False
     estimated_history = []
@@ -185,14 +219,25 @@ def run_simulation(
         else:
             current_odom = current_true_pose.copy()
 
+        #
+        # PERCEZIONE E PREELABORAZIONE effettua scansione lidar
+        #
         # Effettua la lettura del LiDAR simulato basandosi sulla posizione reale del robot
         # Lo scanner LIDAR usa la posa reale
         scan_local = lidar.scan_hits(current_true_pose, env, frame='local')
 
-        # === Fase di Localizzazione ===
+        # VOXEL DOWN SAMPLING SULLA SCANSIONE ATTUALE
+        # Applichiamo un filtro di 3 cm per alleggerire i calcoli successivi
+        scan_local = voxel_downsample_2d(scan_local, voxel_size=0.03)
 
-        # A. Calcola lo spostamento del robot rispetto allo step precedente (Dead Reckoning)
+        # === Fase di Localizzazione ===
+        #
+        # PREDIZIONE POSIZIONE BASATA SU ODOMETRIA
+        #
+        # A. Calcola lo spostamento del robot rispetto allo step precedente
         # Il calcolo del delta odometrico usa la posa stimata/rumorosa
+        # R_delta = rotation_matrix: Matrice di rotazione 2x2
+        # t_delta = translation_vector: Vettore traslazione 2D
         R_delta, t_delta = compute_relative_transform_from_odometry(previous_odom, current_odom)
 
         # B. Applica lo spostamento misurato alla posizione stimata (Predizione)
@@ -200,6 +245,7 @@ def run_simulation(
         R_est_current = np.array([[cos_e, -sin_e], [sin_e, cos_e]])
         t_est_current = estimated_pose[:2]
 
+        # @ operatore di moltiplicazione metriciale riga per colonna
         init_R = R_est_current @ R_delta
         init_t = t_est_current + (R_est_current @ t_delta)
 
@@ -220,8 +266,9 @@ def run_simulation(
                 init_R=init_R, init_t=init_t, max_correspondence_distance=1.5
             )
 
+            # ['init'] per acceddere a valori icp con inizilizzazione odometrica
             icp_init_res = icp_results['init']
-            icp_t = icp_init_res['t']
+            icp_t = icp_init_res['t']   # per ottenere la variabile "t"
             icp_theta = icp_init_res['alpha_rad']
 
             # Verifica la validità matematica dell'algoritmo ICP
@@ -229,8 +276,7 @@ def run_simulation(
             # (a) qualità intrinseca del fit ICP (corrispondenze, RMSE, convergenza)
             # (b) plausibilità fisica della correzione rispetto alla predizione
             #     odometrica: un salto enorme rispetto ad essa è quasi sempre un fit
-            #     corrotto (es. "aperture problem" su corrispondenze poco diversificate
-            #     angolarmente), non una correzione legittima.
+            #     corrotto, non una correzione legittima.
             fit_quality_ok = (
                     icp_init_res['converged']
                     and icp_init_res['n_corr_last'] >= min_icp_correspondences
@@ -242,11 +288,16 @@ def run_simulation(
             angle_correction = angle_diff(icp_theta, predicted_pose[2])
             pos_correction = float(np.linalg.norm(np.asarray(icp_t) - predicted_pose[:2]))
 
+            # misure il numero di conficenza che icp ha trovato guardando il numero di punti associati
+            # confidence varia da 0.0 a 1.0
             confidence = min(1.0, icp_init_res['n_corr_last'] / (min_icp_correspondences * 2.5))
+            # a seconda del valore di fiducia la nostra quantita di correzione icp varia
             trust_factor = 0.3 + 0.7 * confidence
+            # pi+ il valore di fiducia è alto più le soglie dinamichie di fiducia aumentano
             effective_max_angle = max_icp_angle_correction * trust_factor
             effective_max_pos = max_icp_pos_correction * trust_factor
 
+            # vedo se la correzione rientra all'interno delle nostre soglie dinamiche
             plausibility_ok = (angle_correction <= effective_max_angle and pos_correction <= effective_max_pos)
 
             # Se i controlli sono superati, la posa viene corretta definitivamente
@@ -349,6 +400,7 @@ def run_simulation(
         # dal punto di partenza (necessario per i percorsi chiusi, dove l'ultimo
         # punto del percorso coincide con il primo).
         # Controlla se il robot si è staccato dal punto di partenza
+        # linalg calcola la norma di un vettore
         if not left_start:
             if np.linalg.norm(current_true_pose[:2] - start_pos) > min_leave_start_dist:
                 left_start = True

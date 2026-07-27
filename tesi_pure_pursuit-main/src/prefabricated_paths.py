@@ -276,7 +276,7 @@ class PrefabricatedPaths:
         """
         # Ritorna semplicemente l'elenco hardware-coded dei nomi validi
         return [
-            "contapassi"
+            "tight_slalom"
         ]
 
 
@@ -294,7 +294,7 @@ class PrefabricatedPaths:
 #"pista_2",
 #"pista_3_(2_giri)"
 
-##############
+############## test già fatto senza voxsel down sampling
 # "straight_short",
 # "straight_long",
 #             "circle_medium",
@@ -305,6 +305,17 @@ class PrefabricatedPaths:
 # "circle_large",
 # "pista_1"
 #"wide_slalom"
+
+
+#voxsel downsampling
+# "circle_medium",
+# "tight_slalom",
+# "contapassi"
+# "eight",
+# "pista_3_(2_giri)"
+
+
+
 
 # --- Utility helper ---
 

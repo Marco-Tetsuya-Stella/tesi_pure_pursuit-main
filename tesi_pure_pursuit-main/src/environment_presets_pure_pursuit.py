@@ -173,6 +173,8 @@ def _halton(index: int, base: int) -> float:
         result += f * (i % base)
 
         # Riduce 'i' eliminando l'ultima cifra appena elaborata (divisione intera)
+        #esegue una divisione intera, scartando la cifra appena estratta per passare a quella successiva
+        # (muovendosi da destra verso sinistra). Divisione intera.
         i //= base
 
         # Riduce il peso per la cifra successiva
@@ -322,6 +324,7 @@ def _build_environment_for_path(
         # pattern ripetitivi, restando comunque deterministica.
         fx = _halton(idx, 2)
         fy = _halton(idx, 3)
+        #scalo le dimensioni secondo la grandezza della mappa
         cx = b_left + fx * span_x
         cy = b_bottom + fy * span_y
 
@@ -352,6 +355,7 @@ def _build_environment_for_path(
             w, h = r * 2.0, r * 2.0 * aspect
             xmin_r, ymin_r = cx - w / 2, cy - h / 2
             xmax_r, ymax_r = cx + w / 2, cy + h / 2
+            #creo figura geometrica retangolo
             candidate = box(xmin_r, ymin_r, xmax_r, ymax_r)
             if _is_safe(env, candidate, path_line, clearance):
                 env.add_rectangle(xmin_r, ymin_r, xmax_r, ymax_r)

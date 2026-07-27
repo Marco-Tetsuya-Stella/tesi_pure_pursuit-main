@@ -1,5 +1,5 @@
 """
-
+Simula un'odometria con rumore realistico e intermittente
 aggiunto per tesi per il pure pursuit
 """
 import numpy as np

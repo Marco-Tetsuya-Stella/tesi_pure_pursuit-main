@@ -18,7 +18,7 @@ class PurePursuitController:
             max_angular_velocity: float = 2.0,
             target_linear_velocity: float = 0.4,
             stop_tolerance: float = 0.05,
-            max_index_gap: int = 50
+            search_window: int = 50
     ):
         """
         Inizializza i parametri operativi del controllore Pure Pursuit.
@@ -28,8 +28,7 @@ class PurePursuitController:
             max_angular_velocity: Limite massimo per la velocità di rotazione del robot.
             target_linear_velocity: Velocità di avanzamento costante desiderata per il robot.
             stop_tolerance: Distanza euclidea finale (m) sotto la quale il traguardo è considerato raggiunto.
-            max_index_gap: Numero di waypoint massimi tollerati tra l'indice attuale e la fine del percorso
-                           per confermare l'arrivo al traguardo.
+            search_window: ampiezza della finestra di ricerca tra i punti disponibili nel percorso
         """
         self.L_d = lookahead_distance
         self.max_omega = max_angular_velocity
@@ -40,14 +39,11 @@ class PurePursuitController:
 
         # Gestione interruzione
         self.stop_tolerance = stop_tolerance
-        self.max_index_gap = max_index_gap
+        self.search_window = search_window
 
     def reset(self) -> None:
         """
         Resetta il progresso lungo il path (da chiamare se si cambia percorso).
-
-        Returns:
-            Nessun valore restituito, azzera semplicemente l'indice interno.
         """
         self._last_idx = 0
 
@@ -79,10 +75,9 @@ class PurePursuitController:
         # Inizia a cercare partendo dall'ultimo indice visitato, per non guardare indietro
         start_index = min(self._last_idx, n - 2)
 
-        # DEFINISCI UNA FINESTRA DI RICERCA
+        # Utilizzo la FINESTRA DI RICERCA
         # Cerca al massimo per i prossimi 50 waypoint, senza scorrere tutto l'array
-        search_window = 50
-        end_index = min(start_index + search_window, n - 1)
+        end_index = min(start_index + self.search_window, n - 1)
 
         # Scorre i segmenti del percorso limitati dalla finestra di ricerca
         for i in range(start_index, end_index):
@@ -175,12 +170,20 @@ class PurePursuitController:
                 candidate = sol_pt2
 
             # Assicura che il punto scelto sia effettivamente più avanti rispetto alla posizione attuale
+            # next_pt: È la fine del segmento corrente. È la direzione verso cui il robot deve andare.
+            # np.linalg.norm(candidate - next_pt): Calcola la distanza fisica tra il punto candidato e la fine del segmento.
+            # np.linalg.norm(current_pos - next_pt): Calcola la distanza fisica tra il robot e la fine del segmento.
+            # Se il candidato è più vicino alla fine del segmento rispetto a quanto lo sia il robot, significa
+            # matematicamente che il candidato si trova davanti al robot.
             if np.linalg.norm(candidate - next_pt) <= np.linalg.norm(current_pos - next_pt):
                 goal_pt = candidate
                 # Aggiorna l'indice così al prossimo ciclo partirà da qui
                 self._last_idx = i
                 break
             else:
+                # Se la distanza del candidato dalla fine del segmento è maggiore di quella del robot, significa che il
+                # robot ha già fisicamente oltrepassato quel punto di intersezione. si passa ad analizzare il segmento
+                # successivo
                 self._last_idx = i + 1
 
         # Fallback: se nessuna intersezione viene trovata, punta semplicemente all'ultimo punto visitato valido
@@ -190,11 +193,13 @@ class PurePursuitController:
 
         return goal_pt
 
+
     def compute_commands(
             self, robot_pose: np.ndarray, path: np.ndarray
     ) -> tuple[float, float]:
         """
-        Calcola i comandi cinematici per il robot al fine di raggiungere il lookahead point.
+        Calcola i comandi cinematici per il robot al fine di raggiungere il lookahead point,
+        utilizzando la formulazione basata sull'angolo alfa.
 
         Args:
             robot_pose: Posizione e orientamento attuali del robot [x, y, theta].
@@ -208,16 +213,20 @@ class PurePursuitController:
         # Controllo di arrivo a destinazione basato sugli indici
         # Recupera l'ultimo punto del tracciato per usarlo come traguardo
         final_point = path[-1, :2]
+
         # Calcola la distanza fisica euclidea tra il robot e il traguardo
         distance_to_goal = np.hypot(final_point[0] - x_r, final_point[1] - y_r)
 
         # Calcoliamo quanti punti "logici" mancano alla fine del tracciato rispetto al nostro progresso
         index_distance_to_end = (len(path) - 1) - self._last_idx
 
-        # Se la distanza fisica è inferiore alla soglia E siamo vicini alla fine dell'array (es. ultimi 30 punti)
-        # OPPURE se l'indice è rimasto bloccato vicinissimo alla fine (ultimi 3 punti dell'array)
+        # Se la distanza fisica è inferiore alla soglia E siamo vicini alla fine dell'array
+        # max_index_gap: Numero di waypoint massimi tollerati tra l'indice attuale e la fine del percorso
+        # per confermare l'arrivo al traguardo.
+        max_index_gap = 50
+
         if distance_to_goal < self.stop_tolerance:
-            if index_distance_to_end < self.max_index_gap:
+            if index_distance_to_end < max_index_gap:
                 # Il robot si ferma inviando velocità zero
                 return 0.0, 0.0
         # --------------------------------------------------------------------------
@@ -225,57 +234,43 @@ class PurePursuitController:
         # Richiama la funzione geometrica per trovare il punto di mira
         lookahead_pt = self.find_lookahead_point(robot_pose, path)
 
-        # NOTA: (dx, dy): È il vettore posizione del punto di mira rispetto al robot nel sistema
-        # di riferimento globale del enviroment
-        # Matrice di Rotazione Inversa: Ruota il vettore (dx, dy) dell'angolo del robot
-        # theta_r per portarlo nel sistema di riferimento locale del robot:
-        #   local_x: Distanza del punto di mira davanti al robot (asse longitudinale).
-        #   local_y: Distanza del punto di mira a sinistra/destra del robot (asse trasversale).
-
-        # Calcola la differenza (delta) globale tra il punto di mira e il robot
+        # Calcola le componenti del vettore che punta dal robot al target
         dx = lookahead_pt[0] - x_r
         dy = lookahead_pt[1] - y_r
 
-        # Trasforma i delta globali (dx, dy) nel sistema di coordinate locale del robot tramite matrice
-        # di rotazione inversa
-        local_x = np.cos(theta_r) * dx + np.sin(theta_r) * dy
-        local_y = -np.sin(theta_r) * dx + np.cos(theta_r) * dy
+        # Calcola la Look-ahead distance (l_d) effettiva
+        l_d = np.hypot(dx, dy)
+        if l_d < 0.001:
+            l_d = 0.001
 
-        # NOTA: Se il punto si trova dietro al robot (local_x negativo),
-        # Poiché il Pure Pursuit guida solo in avanti, l'algoritmo forza una rotazione alla massima velocità
-        # angolare (max_omega) nella direzione del punto np.sign(local_y).
-        # il robot ruota sul posto per rimettersi in direzione
-        if local_x < 0:
+        # Calcola l'angolo globale del vettore che punta al target
+        # arctan2(dy, dx) prende entrambi i cateti separatamente e ne analizza i segni. Questo le permette di identificare
+        # correttamente il quadrante in cui si trova il punto target su 360° (restituendo un valore tra -pi e +pi)
+        # ed evita problemi di divisione per zero quando dx = 0.
+        target_angle = np.arctan2(dy, dx)
+
+        # Calcola l'angolo alfa: differenza tra la direzione del target e l'orientamento attuale
+        alpha = target_angle - theta_r
+
+        # Normalizza l'angolo alfa nell'intervallo [-pi, pi]
+        # secondo la formula alpha_normalizzato = atan2(sin(alpha), cos(alpha))
+        alpha = np.arctan2(np.sin(alpha), np.cos(alpha))
+
+        # NOTA: Se il punto si trova dietro al robot (alfa maggiore di 90 gradi in valore assoluto),
+        # il robot ruota sul posto alla massima velocità verso la direzione del punto target.
+        if np.abs(alpha) > (np.pi / 2.0):
             v = self.target_v
-            omega = np.sign(local_y) * self.max_omega
+            omega = np.sign(alpha) * self.max_omega
             return v, omega
 
-        # Calcola la distanza esatta del lookahead nel sistema locale per prevenire divisioni per zero
-        actual_L_d = np.hypot(local_x, local_y)
-        if actual_L_d < 0.001:
-            actual_L_d = 0.001
+        # Formula centrale del Pure Pursuit basata sull'angolo alfa:
+        # Calcola la curvatura k = (2 * sin(alfa)) / l_d
+        curvature = (2.0 * np.sin(alpha)) / l_d
 
-        # NOTA: Equazione fondamentale del Pure Pursuit.
-        # Geometricamente, l'obiettivo è trovare un arco di cerchio che parta dal centro del robot
-        # (tangente al suo asse di avanzamento) e arrivi esattamente al punto di mira (x, y)_locale avente una distanza
-        # dal robot pari a L_d.
-        # Dalla geometria del cerchio, la curvatura k (che è il reciproco del raggio del cerchio k = 1/R) è legata
-        # alla posizione locale da:
-        #   k = (2 * y_locale)/(L_d^2)
-        # actual_L_d è calcolato tramite la distanza euclidea reale: sqrt{x_locale^2 + y_locale^2}
-        # Poiché nel moto dei robot la velocità angolare è definita come omega = v*k, sostituendo la curvatura otteniamo:
-        # omega = v * (2 * y_locale)/(L_d^2)
-        #   Se il punto è a sinistra (y_locale > 0), omega è positiva e il robot curva a sinistra.
-        #   Se il punto è a destra (y_locale < 0), omega è negativa e il robot curva a destra.
-        #   Se il punto è perfettamente allineato (y_locale = 0), la curvatura è zero e il robot procede dritto.
-
-
-        # Formula centrale del Pure Pursuit: calcola la curvatura dell'arco che unisce il robot al punto
-        curvature = (2.0 * local_y) / (actual_L_d ** 2)
-
-        # La velocità lineare è mantenuta costante, mentre quella angolare si calcola moltiplicando v per la curvatura
+        # La velocità lineare è mantenuta costante
         v = self.target_v
-        # La velocità angolare viene tagliata ("clippata") affinché non superi il limite fisico imposto
+
+        # La velocità angolare (omega = v * k) viene calcolata e "clippata" per rispettare il limite
         omega = np.clip(v * curvature, -self.max_omega, self.max_omega)
 
         return v, omega

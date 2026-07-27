@@ -1,3 +1,7 @@
+"""
+programma di esecuzione principale
+aggiunto per tesi per il pure pursuit
+"""
 from prefabricated_paths import PrefabricatedPaths
 from pure_pursuit_simulation import run_simulation
 # Importata la funzione per il salvataggio automatico del singolo gruppo
@@ -11,8 +15,8 @@ def main():
     e raggruppa i risultati per poi aprirli nel visualizzatore interattivo.
     """
     path_names = PrefabricatedPaths.list_presets()
-    variants = ["type1"]
-    lookahead_distances = [0.2, 0.4, 0.6]  # array di valori di lookahead
+    variants = ["type1","type2", "type3"]                    # array tipo di percorso
+    lookahead_distances = [0.6]  # array di valori di lookahead
 
     # Lista che conterrà tutti i setup. Ogni setup raggruppa le 4 categorie.
     all_experiment_groups = []
@@ -60,7 +64,7 @@ def main():
                 }
 
                 # ------------------------------------------------------------------
-                # OPZIONE B: Salvataggio automatico ed immediato del gruppo su disco
+                # Salvataggio automatico ed immediato del gruppo su disco
                 # ------------------------------------------------------------------
                 print(f"Salvataggio automatico grafici per {path_name}_{variant}_ld{ld}...")
                 export_group_plots(group)
