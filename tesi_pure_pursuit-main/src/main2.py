@@ -5,6 +5,13 @@ su un tracciato selezionato, mostrando l'animazione a schermo e salvando
 il video MP4 nella cartella 'video_pure_pursuit' allo stesso livello di 'src'.
 Evita la sovrascrittura generando percorsi univoci (es. file_1.mp4, file_2.mp4).
 Aggiunto per tesi riguardante il Pure Pursuit
+
+
+IMPORTANTE IMPORTANTE IMPORTANTE IMPORTANTE
+
+per far funzionare FFMpegWriter scaricare FFmpeg, che è un programma/eseguibile di sistema
+(installato tramite winget), non un pacchetto Python pip.
+
 """
 from pathlib import Path
 import matplotlib.pyplot as plt
