@@ -276,9 +276,18 @@ class PrefabricatedPaths:
         """
         # Ritorna semplicemente l'elenco hardware-coded dei nomi validi
         return [
+            "straight_short",
+            "circle_medium",
             "tight_slalom"
         ]
 
+
+# Per l'esecuzione si consiglia caldamente di iniziare con "straight_short" quello più corto
+# Insrendo un solo type e una sola distanza di look ahed negli array
+#     variants = ["type1","type2","type3"]    array tipo di percorso
+#     lookahead_distances = [0.2, 0.4, 0.6]  array di valori di lookahead
+# presenti nel main_pure_pursuit
+# per guardare un'anteprima dei tracciati eseguire environment_presets_pure_pursuit.py
 
 # Lista path disponibili
 #"straight_short",
@@ -293,27 +302,6 @@ class PrefabricatedPaths:
 #"pista_1",
 #"pista_2",
 #"pista_3_(2_giri)"
-
-############## test già fatto senza voxsel down sampling
-# "straight_short",
-# "straight_long",
-#             "circle_medium",
-#             "tight_slalom",
-#             "eight",
-#             "square"
-#             "pista_3_(2_giri)"
-# "circle_large",
-# "pista_1"
-#"wide_slalom"
-
-
-#voxsel downsampling
-# "circle_medium",
-# "tight_slalom",
-# "contapassi"
-# "eight",
-# "pista_3_(2_giri)"
-
 
 
 

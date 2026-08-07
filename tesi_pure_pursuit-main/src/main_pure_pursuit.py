@@ -1,5 +1,10 @@
 """
 programma di esecuzione principale
+#
+# IMPORTANTE IMPORTANTE IMPORTANTE IMPORTANTE IMPORTANTE
+#
+prima di eseguire andare a vedere la riga 283 del prefabricated_paths.py
+
 aggiunto per tesi per il pure pursuit
 """
 from prefabricated_paths import PrefabricatedPaths
@@ -15,8 +20,8 @@ def main():
     e raggruppa i risultati per poi aprirli nel visualizzatore interattivo.
     """
     path_names = PrefabricatedPaths.list_presets()
-    variants = ["type1","type2", "type3"]                    # array tipo di percorso
-    lookahead_distances = [0.6]  # array di valori di lookahead
+    variants = ["type1","type2","type3"]                    # array tipo di percorso
+    lookahead_distances = [0.2, 0.4, 0.6]  # array di valori di lookahead
 
     # Lista che conterrà tutti i setup. Ogni setup raggruppa le 4 categorie.
     all_experiment_groups = []
