@@ -1,54 +1,37 @@
-# README - Pure Pursuit Robot System
+# Pure Pursuit Robot System
 
-> **Aggiornato al 24/07/2026:** Gli aggiornamenti sono scritti in fondo al testo.
->
-> **Nota:** File README non definitivo.
-
-## Descrizione del Progetto
-
-Il programma prosegue un lavoro di tesi già iniziato da altri studenti, implementando un sistema di **Pure Pursuit** per un robot.
+Il progetto prosegue ed estende un lavoro di tesi incentrato sull'implementazione, la simulazione e l'analisi sperimentale dell'algoritmo di inseguimento di traiettoria **Pure Pursuit** per veicoli robotici autonomi.
 
 ---
 
-## Struttura dei Nuovi File Implementati
+## 🛠️ Struttura del Progetto e Moduli
 
-- **`path_generator`**: fornisce i metodi per la generazione di percorsi discreti.
-- **`prefabricated_paths`**: mette a disposizione una serie di percorsi predefiniti, pronti all'uso, e ne consente la visualizzazione.
-- **`environment_presets_pure_pursuit`**: permette la generazione deterministica di ambienti con ostacoli, garantendo che questi non interferiscano con il percorso.
-- **`pure_pursuit`**: implementa l'algoritmo di Pure Pursuit.
-- **`pure_pursuit_simulation`**: esegue le simulazioni e ne gestisce la visualizzazione. Attualmente consente di testare **nove diverse tipologie di tracciati** (sia aperti sia chiusi), utilizzando **ICP con odometria**, con la possibilità di abilitare o meno la *loop closure*.
+### 🔹 Moduli Principali (Algoritmo e Simulazione)
+* **`pure_pursuit.py`**: Implementa la logica dell'algoritmo di guida Pure Pursuit per il calcolo dei comandi di guida.
+* **`pure_pursuit_simulation.py`**: Gestisce il ciclo di simulazione. Permette di testare **12 diverse tipologie di tracciati** (aperti e chiusi) utilizzando la stima di posizione tramite **ICP con odometria** (sia *ideale* sia *rumorosa*) ed abilitando/disabilitando la *loop closure*. Gestisce inoltre esperimenti parametrici variando la distanza di look-ahead ($L_d$).
+* **`noisy_odometry.py`**: Simula un modello di odometria con rumore realistico e intermittente per valutare la robustezza del sistema.
 
-> **Nota aggiuntiva:** È inoltre presente una classe denominata `main2`, realizzata inizialmente per implementare una visualizzazione animata dei tracciati, ma al momento ancora incompleta.
+### 🔹 Moduli di Generazione Ambiente e Percorsi
+* **`path_generator.py`**: Fornisce i metodi per la generazione discreta di percorsi custom.
+* **`prefabricated_paths.py`**: Mette a disposizione una serie di percorsi predefiniti pronti all'uso e funzioni per la loro visualizzazione.
+* **`environment_presets_pure_pursuit.py`**: Consente la generazione deterministica di ambienti con ostacoli che non interferiscono con il percorso. Supporta 3 livelli di configurazione per tracciato:
+  * `type1`: Nessun ostacolo.
+  * `type2`: Densità media di ostacoli.
+  * `type3`: Massimo numero di ostacoli.
 
----
-
-## Sviluppi Futuri (Next Steps)
-
-Nei prossimi giorni intendo completare i seguenti aspetti:
-
-1. **Migliorare la visualizzazione grafica** dei risultati, aggiungendo ulteriori grafici.
-2. **Ampliare il numero di test** eseguiti.
-3. **Implementare un sistema per il salvataggio automatico** dei grafici prodotti.
-4. **Valutare l'aggiunta di un'animazione** del movimento del robot durante le simulazioni.
-
----
-
-## Esecuzione dei Programmi
-
-- Il programma principale è eseguibile attraverso:
-  ```bash
-  python pure_pursuit_simulation.py
-  ```
-- Attraverso il seguente script è invece possibile visualizzare i tracciati e gli ambienti prefabbricati:
-  ```bash
-  python environment_presets_pure_pursuit.py
-  ```
+### 🔹 Visualizzazione ed Esecuzione
+* **`visualizer_pure_pursuit.py`**: Modulo dedicato all'analisi grafica dei risultati:
+  * Confronto tra la traiettoria di riferimento e la traiettoria effettivamente percorsa dal veicolo.
+  * Analisi quantitativa degli errori di inseguimento e dei parametri di controllo.
+  * Salvataggio automatico dei grafici generati.
+* **`main_pure_pursuit.py`**: Script principale che orchestra ed esegue l'intero flusso di simulazione ed esperimenti parametrici.
+* **`main2.py`**: Script per l'esecuzione di una singola simulazione su un tracciato selezionato; mostra l'animazione in tempo reale a schermo e salva il video in formato `.mp4` nella cartella `video_pure_pursuit/`.
 
 ---
 
-## Requisiti di Sistema e Dipendenze
+## 💻 Requisiti di Sistema e Dipendenze
 
-Per eseguire i programmi è **necessaria la versione Python 3.11** (versioni successive causano problemi di compatibilità con alcune librerie Python presenti nei requirments).
+> ⚠️ **IMPORTANTE:** È **necessario utilizzare Python 3.11**. Versioni successive causano problemi di compatibilità con alcune librerie.
 
 ### Dipendenze (`requirements.txt`)
 
@@ -61,35 +44,27 @@ scipy==1.16.3
 open3d==0.19.0
 ```
 
+Per installare le dipendenze:
+```bash
+pip install -r requirements.txt
+```
+
 ---
 
-## Aggiornamento 22/07/2026
+## 🚀 Guida all'Esecuzione
 
-- **`environment_presets_pure_pursuit.py`**: aggiunta di tre tipi di configurazione per tracciato (`type1` = nessun ostacolo, `type3` = massimo numero di ostacoli).
-- **`path_generator.py`**: aggiunta di una nuova pista (la quale ha un punto di intersezione così da poter sfruttare la loop closure).
-- **`pure_pursuit.py`**:
-  - Aggiunta di una finestra su cui andare a vedere i punti del percorso.
-  - Correzione del bug di terminazione prematura.
-- **`pure_pursuit_simulation.py`**:
-  - Permette ora di eseguire 4 tipi di test per tipologia di tracciato, scegliendo se attivare o meno il rumore all'odometria e se usare o meno la loop closure.
-- **`noisy_odometry.py`**: simula un'odometria con rumore realistico e intermittente.
+1. **Esecuzione della suite di test completa (Esperimenti e Grafici)**:
+   ```bash
+   python main_pure_pursuit.py
+   ```
 
+2. **Visualizzazione di una singola simulazione e salvataggio video**:
+   ```bash
+   python main2.py
+   ```
 
-## Aggiornamento 24/07/2026
-
-### 1. Visualizzatore Grafico (`visualizer_pure_pursuit.py`)
-Creazione del modulo **`visualizer_pure_pursuit`** che si occupa di visualizzare graficamente i risultati degli esperimenti e di salvene i grafici.
-* Permette di confrontare la traiettoria di riferimento con la traiettoria effettiva percorsa dal veicolo.
-* Consente l'analisi degli errori di inseguimento e dei parametri di controllo.
-
-### 2. Nuovi Percorsi Predefiniti (`prefabricated_paths.py`)
-Aggiunta di due nuovi path all'interno del file **`prefabricated_paths.py`**:
-* **`pista_3`**: Esegue due giri completi e presenta alcune curve strettissime per valutare la stabilità e la continuità del tracciamento sul lungo periodo.
-* **`contapassi`**: Path formato da una serie di curve ad angolo acuto (molto stretto), progettato per analizzare le differenze di comportamento in base ai vari valori della distanza di *look-ahead*.
-
-### 3. Script Principale (`main_pure_pursuit.py`)
-Aggiunta del file **`main_pure_pursuit.py`** con il compito di orchestrare ed eseguire l'intero flusso di simulazione ed esperimenti.
-
-### 4. Esperimenti Multi-Lookahead
-Aggiunta la possibilità di eseguire gli esperimenti con differenti distanze di *look-ahead* ($L_d$), consentendo un'analisi comparativa approfondita delle prestazioni sui diversi tracciati.
+3. **Visualizzazione preventiva dei tracciati e degli ambienti con ostacoli**:
+   ```bash
+   python environment_presets_pure_pursuit.py
+   ```
 
