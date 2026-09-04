@@ -17,7 +17,7 @@ class PurePursuitController:
             lookahead_distance: float = 0.5,
             max_angular_velocity: float = 2.0,
             target_linear_velocity: float = 0.4,
-            stop_tolerance: float = 0.05,
+            stop_tolerance: float = 0.1,
             search_window: int = 50
     ):
         """
@@ -53,6 +53,7 @@ class PurePursuitController:
         """
         Trova il goal point calcolando l'intersezione geometrica esatta tra la
         circonferenza di raggio L_d centrata sul robot e ciascun segmento del path.
+        Se l'ultimo punto dista <= L_d dal robot ED è logicamente vicino, punta direttamente al traguardo.
 
         Args:
             robot_pose: Array [x, y, theta] con la posa globale attuale del robot.
@@ -71,12 +72,27 @@ class PurePursuitController:
         if n < 2:
             return path[-1, :2]
 
+        # --------------------------------------------------------------------------
+        # CONTROLLO TRAGUARDO VICINO per prevenire loop infiniti in prossimità del punto di terminazione
+        # Se la distanza tra il robot ed il punto finale è <= L_d e siamo anche
+        # prossimi alla fine dell'array (entro la search_window), si punta direttamente
+        # al traguardo. Questo evita di saltare la traiettoria se il punto finale
+        # si trova per caso vicino al robot durante le prime fasi (es. circuiti chiusi).
+        # --------------------------------------------------------------------------
+        final_point = path[-1, :2]
+        dist_to_final = np.linalg.norm(final_point - current_pos)
+        index_distance_to_end = (n - 1) - self._last_idx
+
+        if dist_to_final <= L_d and index_distance_to_end <= self.search_window:
+            self._last_idx = n - 1
+            return final_point.copy()
+
         goal_pt = None
         # Inizia a cercare partendo dall'ultimo indice visitato, per non guardare indietro
         start_index = min(self._last_idx, n - 2)
 
         # Utilizzo la FINESTRA DI RICERCA
-        # Cerca al massimo per i prossimi 50 waypoint, senza scorrere tutto l'array
+        # Cerca al massimo per i prossimi waypoint della finestra, senza scorrere tutto l'array
         end_index = min(start_index + self.search_window, n - 1)
 
         # Scorre i segmenti del percorso limitati dalla finestra di ricerca
@@ -84,7 +100,6 @@ class PurePursuitController:
             # Trasla il segmento di percorso ponendo il robot all'origine (0,0) per facilitare i calcoli
             p1 = path[i, :2] - current_pos
             p2 = path[i + 1, :2] - current_pos
-
 
             # Formule per l'intersezione Retta-Circonferenza
             # circonferenza centrata nell'origine con raggio r = Ld:
@@ -192,7 +207,6 @@ class PurePursuitController:
             goal_pt = path[fallback_idx, :2].copy()
 
         return goal_pt
-
 
     def compute_commands(
             self, robot_pose: np.ndarray, path: np.ndarray

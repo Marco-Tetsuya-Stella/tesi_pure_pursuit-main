@@ -276,9 +276,7 @@ class PrefabricatedPaths:
         """
         # Ritorna semplicemente l'elenco hardware-coded dei nomi validi
         return [
-            "straight_short",
-            "circle_medium",
-            "tight_slalom"
+            "pista_3_(2_giri)"
         ]
 
 

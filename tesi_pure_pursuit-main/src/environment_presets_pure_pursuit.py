@@ -102,7 +102,7 @@ PRESET_ENV_CONFIG: dict = {
     },
     "pista_3_(2_giri)": {
         "type1":   {"clearance": 1.0, "n_obstacles": 0,  "r_max": 6.0},
-        "type2":   {"clearance": 0.9, "n_obstacles": 3,  "r_max": 9.0},
+        "type2":   {"clearance": 0.9, "n_obstacles": 3,  "r_max": 6.0},
         "type3":   {"clearance": 0.8, "n_obstacles": 8, "r_max": 6.0},
     },
 }

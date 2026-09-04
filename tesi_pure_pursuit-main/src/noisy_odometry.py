@@ -8,7 +8,7 @@ import numpy as np
 class NoisyOdometry:
     """
     Simula un'odometria con rumore realistico e intermittente:
-    - Un rumore di fondo continuo molto lieve.
+    - Un rumore di fondo gaussiano continuo molto lieve.
     - Eventi sporadici (es. slittamenti, perdita di aderenza) che introducono errori improvvisi.
     """
 
@@ -43,6 +43,10 @@ class NoisyOdometry:
         std_v = self.base_noise * abs(v)
         std_w = self.base_noise * abs(omega)
 
+        # genera numeri casuali estratti da una distribuzione normale (o Gaussiana), dove:
+        #
+        # 0 è la media
+        # std_v (o std_w) è la deviazione standard, calcolata come proporzionale alle velocità del robot (base_noise * abs(v)).
         noisy_v = v + np.random.normal(0, std_v) if std_v > 0 else v
         noisy_omega = omega + np.random.normal(0, std_w) if std_w > 0 else omega
 
